@@ -89,9 +89,15 @@ export function ErpShell({ children }: { children: ReactNode }) {
   const [search, setSearch] = useState('');
   const [profile, setProfile] = useState(false);
   useEffect(() => {
-    if (!loading && !user) router.replace('/login');
+    if (!loading) {
+      if (!user) {
+        router.replace('/login');
+      } else if (user.forcePasswordChange) {
+        router.replace('/change-password');
+      }
+    }
   }, [loading, user, router]);
-  if (loading || !user)
+  if (loading || !user || user.forcePasswordChange)
     return (
       <div className="p-10">
         <Loading />

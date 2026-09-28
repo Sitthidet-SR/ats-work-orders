@@ -56,6 +56,7 @@ model User {
   name String
   position String
   passwordHash String
+  forcePasswordChange Boolean @default(true)
   active Boolean @default(true)
   departmentId String @db.Uuid
   department Department @relation(fields:[departmentId], references:[id])

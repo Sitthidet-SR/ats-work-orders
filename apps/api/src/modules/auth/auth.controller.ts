@@ -4,7 +4,7 @@ import { Throttle } from '@nestjs/throttler';
 import { Response, Request, CookieOptions } from 'express';
 import { Public } from '../roles/permissions';
 import { AuthService } from './auth.service';
-import { LoginDto } from './auth.dto';
+import { LoginDto, ChangePasswordDto } from './auth.dto';
 import { AuthRequest } from './auth.types';
 @ApiTags('auth')
 @Controller('auth')
@@ -50,5 +50,11 @@ export class AuthController {
   }
   @ApiBearerAuth() @Get('me') me(@Req() req: AuthRequest) {
     return req.user;
+  }
+
+  @ApiBearerAuth()
+  @Post('change-password')
+  async changePassword(@Req() req: AuthRequest, @Body() dto: ChangePasswordDto) {
+    return this.auth.changePassword(req.user.id, dto.newPassword);
   }
 }

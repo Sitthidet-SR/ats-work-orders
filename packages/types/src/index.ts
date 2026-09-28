@@ -50,6 +50,7 @@ export interface Person {
   department: Master;
   roles: string[];
   permissions: string[];
+  forcePasswordChange?: boolean;
 }
 export interface Material {
   id?: string;

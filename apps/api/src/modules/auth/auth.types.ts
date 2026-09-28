@@ -9,6 +9,7 @@ export interface Actor {
   department: { id: string; code: string; name: string };
   roles: string[];
   permissions: string[];
+  forcePasswordChange: boolean;
 }
 export interface AuthRequest extends Request {
   user: Actor;

@@ -1,6 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { compare } from 'bcrypt';
+import { compare, hash } from 'bcrypt';
 import { createHash, randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma.service';
@@ -37,6 +37,7 @@ export class AuthService {
       permissions: [
         ...new Set(user.roles.flatMap((r) => r.role.permissions.map((p) => p.permission.name))),
       ],
+      forcePasswordChange: user.forcePasswordChange,
     };
   }
   async login(dto: LoginDto) {
@@ -117,5 +118,15 @@ export class AuthService {
       });
     }
     return { loggedOut: true };
+  }
+
+  async changePassword(userId: string, newPassword: string) {
+    if (newPassword.length < 12) throw new UnauthorizedException('รหัสผ่านต้องมีความยาวอย่างน้อย 12 ตัวอักษร');
+    const passwordHash = await hash(newPassword, 12);
+    await this.db.user.update({
+      where: { id: userId },
+      data: { passwordHash, forcePasswordChange: false },
+    });
+    return { success: true };
   }
 }
