@@ -54,7 +54,7 @@ export default function ChangePassword() {
       // Refresh session to update forcePasswordChange flag in memory
       await refreshSession();
       // force reload or router push, but AuthProvider should update state via refreshSession...
-      // wait, AuthProvider does not export a way to update the user without login. 
+      // wait, AuthProvider does not export a way to update the user without login.
       // A full page reload is safest to get the new session into AuthProvider.
       window.location.href = '/dashboard';
     } catch (e) {
@@ -163,7 +163,8 @@ export default function ChangePassword() {
               </p>
             )}
             <Button className="w-full" disabled={form.formState.isSubmitting || loading}>
-              {form.formState.isSubmitting ? <Spinner /> : <Check size={16} />} ยืนยันการเปลี่ยนรหัสผ่าน
+              {form.formState.isSubmitting ? <Spinner /> : <Check size={16} />}{' '}
+              ยืนยันการเปลี่ยนรหัสผ่าน
             </Button>
           </form>
         </div>

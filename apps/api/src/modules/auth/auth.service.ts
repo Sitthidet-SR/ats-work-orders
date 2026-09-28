@@ -121,7 +121,8 @@ export class AuthService {
   }
 
   async changePassword(userId: string, newPassword: string) {
-    if (newPassword.length < 12) throw new UnauthorizedException('รหัสผ่านต้องมีความยาวอย่างน้อย 12 ตัวอักษร');
+    if (newPassword.length < 12)
+      throw new UnauthorizedException('รหัสผ่านต้องมีความยาวอย่างน้อย 12 ตัวอักษร');
     const passwordHash = await hash(newPassword, 12);
     await this.db.user.update({
       where: { id: userId },

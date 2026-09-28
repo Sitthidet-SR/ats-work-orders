@@ -6,4 +6,6 @@ async function main() {
   const users = await db.user.findMany({ select: { id: true, email: true, username: true } });
   console.log(users);
 }
-main().catch(console.error).finally(() => db.$disconnect());
+main()
+  .catch(console.error)
+  .finally(() => db.$disconnect());

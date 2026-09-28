@@ -84,7 +84,9 @@ export function UserSetup() {
                 autoComplete={key === 'password' ? 'new-password' : 'off'}
                 {...form.register(key as keyof z.infer<typeof schema>)}
               />
-              <p className="mt-1 text-[11px] text-red-600">{form.formState.errors[key as keyof z.infer<typeof schema>]?.message}</p>
+              <p className="mt-1 text-[11px] text-red-600">
+                {form.formState.errors[key as keyof z.infer<typeof schema>]?.message}
+              </p>
             </div>
           ))}
           <div>
@@ -123,7 +125,9 @@ export function UserSetup() {
       )}
 
       <div className="mt-8 border-t border-slate-100 pt-6">
-        <h3 className="mb-4 text-sm font-semibold">รายชื่อพนักงานในระบบ ({users.data?.length || 0})</h3>
+        <h3 className="mb-4 text-sm font-semibold">
+          รายชื่อพนักงานในระบบ ({users.data?.length || 0})
+        </h3>
         <div className="max-h-[400px] overflow-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="sticky top-0 bg-white">

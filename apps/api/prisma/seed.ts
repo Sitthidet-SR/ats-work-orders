@@ -101,7 +101,15 @@ async function seed() {
     const u = await db.user.upsert({
       where: { username },
       update: { name, position, departmentId, passwordHash: finalHash, forcePasswordChange },
-      create: { email, username, name, position, departmentId, passwordHash: finalHash, forcePasswordChange },
+      create: {
+        email,
+        username,
+        name,
+        position,
+        departmentId,
+        passwordHash: finalHash,
+        forcePasswordChange,
+      },
     });
     const role = await db.role.findUniqueOrThrow({ where: { name: roleName } });
     await db.userRole.upsert({
@@ -122,7 +130,14 @@ async function seed() {
     ['1ATS005', 'นายณัฐพงษ์ สมศักดิ์', 'Nutthapong', 'หัวหน้าแผนก', 'Logistics', 'ISSUER'],
     ['1ATS006', 'นายสุธินันท์ แย้มกลิ่น', 'Suthinen', 'ช่างเทคนิค', 'CNC Milling', 'ISSUER'],
     ['1ATS007', 'นายวัชรพล ปุญญาสาสน์', 'Watcharapo', 'หัวหน้าแผนก', 'CNC Lathe', 'ISSUER'],
-    ['1ATS009', 'น.ส.ฐิติรัตน์ เงาศรี', 'Thitirat', 'หัวหน้าแผนก / เลขานุการ', 'ฝ่ายบริหาร/จัดซื้อจัดหา', 'ISSUER'],
+    [
+      '1ATS009',
+      'น.ส.ฐิติรัตน์ เงาศรี',
+      'Thitirat',
+      'หัวหน้าแผนก / เลขานุการ',
+      'ฝ่ายบริหาร/จัดซื้อจัดหา',
+      'ISSUER',
+    ],
     ['1ATS010', 'นายปรเมษฐ์ ศรีนุช', 'Poramet', 'ช่างเทคนิค', 'CNC Milling', 'ISSUER'],
     ['1ATS011', 'น.ส.ปัทมา แสงงาม', 'Pattama', 'หัวหน้าแผนก', 'Design & Development', 'ISSUER'],
     ['1ATS012', 'นายวิชากร กุญชรวิทย์', 'Wichakorn', 'หัวหน้าแผนก', 'CNC Milling', 'ISSUER'],
@@ -131,7 +146,14 @@ async function seed() {
     ['1ATS026', 'น.ส.สุพัตร์ จันทบัณฑิต', 'Supack', 'พนักงาน', 'CNC Lathe', 'ISSUER'],
     ['1ATS027', 'นายรัตนพล สมบัติไพศาล', 'Rattanapho', 'พนักงาน', 'CNC Lathe', 'ISSUER'],
     ['1ATS028', 'นายธนวรรธน์ ปานรักษา', 'Thanawat', 'ช่างเทคนิค', 'Assembly', 'ISSUER'],
-    ['1ATS029', 'นายณัฐพงษ์ เพชรคง', 'Nuttrapong', 'หัวหน้าแผนก', 'ทรัพยากรบุคคลและคลังพัสดุ', 'ISSUER'],
+    [
+      '1ATS029',
+      'นายณัฐพงษ์ เพชรคง',
+      'Nuttrapong',
+      'หัวหน้าแผนก',
+      'ทรัพยากรบุคคลและคลังพัสดุ',
+      'ISSUER',
+    ],
     ['1ATS030', 'Miss. Nan SAN KNAM (Myanmar)', 'San Khan', 'พนักงาน', 'CNC Lathe', 'ISSUER'],
     ['1ATS031', 'MR. WAI YAN PHYO (Myanmar)', 'YAN PHYO', 'พนักงาน', 'CNC Lathe', 'ISSUER'],
     ['1ATS032', 'น.ส.พรวิภา บำรุงบ้านทุ่ม', 'Pornwipha', 'พนักงาน', 'Assembly', 'ISSUER'],
@@ -139,11 +161,32 @@ async function seed() {
     ['1ATS036', 'นางสาวยุวรีย์ เตียมนา', 'Yuvaree', 'เจ้าหน้าที่', 'จัดซื้อจัดหา/Store', 'ISSUER'],
     ['1ATS038', 'นางสาวอารีพร หาดเพชร', 'Areeporn', 'หัวหน้าแผนก', 'บัญชี-การเงิน', 'ISSUER'],
     ['1ATS039', 'นางสาวฐิตา ประคำ', 'Thita', 'เจ้าหน้าที่QC', 'Design & Development', 'ISSUER'],
-    ['1ATS043', 'นายเอกรัฐ ดุละยากรณ์', 'Eakrat', 'พนักงานขับรถ', 'ทรัพยากรบุคคลและคลังพัสดุ', 'ISSUER'],
-    ['1ATS044', 'นายวรศักดิ์ บริสุทธิ์', 'Worasak', 'วิศวกรการผลิต', 'Design & Development', 'ISSUER'],
+    [
+      '1ATS043',
+      'นายเอกรัฐ ดุละยากรณ์',
+      'Eakrat',
+      'พนักงานขับรถ',
+      'ทรัพยากรบุคคลและคลังพัสดุ',
+      'ISSUER',
+    ],
+    [
+      '1ATS044',
+      'นายวรศักดิ์ บริสุทธิ์',
+      'Worasak',
+      'วิศวกรการผลิต',
+      'Design & Development',
+      'ISSUER',
+    ],
     ['1ATS045', 'นางสาวศริญญา จันทวี', 'Sarinya', 'เซลล์ฝ่ายขาย', 'ขาย', 'ISSUER'],
     ['1ATS047', 'นายสราวุฒิ รักษาเพชร', 'Sarawut', 'ช่างเชื่อม', 'Assembly', 'ISSUER'],
-    ['1ATS050', 'นายสิทธิเดช สีเรือง', 'Sitthidet', 'เจ้าหน้าที่ IT Support', 'ทรัพยากรบุคคลและคลังพัสดุ', 'ISSUER'],
+    [
+      '1ATS050',
+      'นายสิทธิเดช สีเรือง',
+      'Sitthidet',
+      'เจ้าหน้าที่ IT Support',
+      'ทรัพยากรบุคคลและคลังพัสดุ',
+      'ISSUER',
+    ],
   ];
 
   // สร้างพนักงานทุกคน
