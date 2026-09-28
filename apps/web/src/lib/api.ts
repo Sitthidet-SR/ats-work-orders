@@ -3,7 +3,7 @@ let token: string | null = null;
 let refreshing: Promise<{ accessToken: string; user: Person }> | null = null;
 export const baseUrl = () => {
   const value = process.env.NEXT_PUBLIC_API_URL;
-  if (!value) throw new Error('กรุณากำหนด NEXT_PUBLIC_API_URL');
+  if (!value) throw new Error('ระบบยังไม่พร้อมใช้งาน กรุณาติดต่อผู้ดูแลระบบ');
   return value.replace(/\/$/, '');
 };
 export function setToken(value: string | null) {
@@ -28,7 +28,7 @@ async function decode<T>(response: Response): Promise<T> {
     );
   return body.data as T;
 }
-export function refreshSession() {
+export async function refreshSession() {
   if (!refreshing)
     refreshing = fetch(`${baseUrl()}/auth/refresh`, { method: 'POST', credentials: 'include' })
       .then((r) => decode<{ accessToken: string; user: Person }>(r))
