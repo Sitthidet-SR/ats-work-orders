@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import type { Master } from '@ats/types';
+import type { Master, Person } from '@ats/types';
 import { api } from '@/lib/api';
 import { Card, Spinner } from './ui/common';
 import { Button } from './ui/button';
@@ -26,6 +26,10 @@ export function UserSetup() {
   const departments = useQuery({
     queryKey: ['departments'],
     queryFn: () => api<Master[]>('/departments'),
+  });
+  const users = useQuery({
+    queryKey: ['users'],
+    queryFn: () => api<Person[]>('/users'),
   });
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
@@ -66,8 +70,8 @@ export function UserSetup() {
           {(
             [
               ['email', 'อีเมล'],
-              ['username', 'ชื่อผู้ใช้'],
-              ['name', 'ชื่อ'],
+              ['username', 'รหัสพนักงาน/ชื่อผู้ใช้'],
+              ['name', 'ชื่อ-นามสกุล'],
               ['position', 'ตำแหน่ง'],
               ['password', 'รหัสผ่านเริ่มต้น'],
             ] as const
@@ -78,9 +82,9 @@ export function UserSetup() {
                 aria-label={label}
                 type={key === 'password' ? 'password' : 'text'}
                 autoComplete={key === 'password' ? 'new-password' : 'off'}
-                {...form.register(key)}
+                {...form.register(key as keyof z.infer<typeof schema>)}
               />
-              <p className="mt-1 text-[11px] text-red-600">{form.formState.errors[key]?.message}</p>
+              <p className="mt-1 text-[11px] text-red-600">{form.formState.errors[key as keyof z.infer<typeof schema>]?.message}</p>
             </div>
           ))}
           <div>
@@ -117,6 +121,50 @@ export function UserSetup() {
           เลือกบทบาทให้ตรงกับหน้าที่ของผู้ใช้งาน
         </p>
       )}
+
+      <div className="mt-8 border-t border-slate-100 pt-6">
+        <h3 className="mb-4 text-sm font-semibold">รายชื่อพนักงานในระบบ ({users.data?.length || 0})</h3>
+        <div className="max-h-[400px] overflow-auto">
+          <table className="w-full text-left text-sm whitespace-nowrap">
+            <thead className="sticky top-0 bg-white">
+              <tr className="border-b border-slate-200 text-slate-500">
+                <th className="pb-2 font-medium">รหัสพนักงาน</th>
+                <th className="pb-2 font-medium">ชื่อ-นามสกุล</th>
+                <th className="pb-2 font-medium">ตำแหน่ง</th>
+                <th className="pb-2 font-medium">แผนก</th>
+                <th className="pb-2 font-medium">สิทธิ์</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.data?.map((u) => (
+                <tr key={u.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
+                  <td className="py-2.5 pr-4">{u.username}</td>
+                  <td className="py-2.5 pr-4">{u.name}</td>
+                  <td className="py-2.5 pr-4 text-xs text-slate-500">{u.position}</td>
+                  <td className="py-2.5 pr-4 text-xs">{u.department?.name || '-'}</td>
+                  <td className="py-2.5">
+                    <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                      {u.roles[0]}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {!users.data?.length && !users.isPending && (
+                <tr>
+                  <td colSpan={5} className="py-6 text-center text-xs text-slate-500">
+                    ยังไม่มีข้อมูลพนักงาน
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+          {users.isPending && (
+            <div className="py-4 text-center">
+              <Spinner />
+            </div>
+          )}
+        </div>
+      </div>
     </Card>
   );
 }

@@ -150,7 +150,7 @@ async function seed() {
   }
 
   // ─── Admin → สิทธิเดช สีเรือง (1ATS050) ──────────────────────────
-  const sitthidet = await db.user.findUnique({ where: { email: '1ats050@ats.local' } });
+  const sitthidet = await db.user.findUnique({ where: { email: 'sitthidet@ats.com' } });
   if (sitthidet) {
     const adminRole = await db.role.findUniqueOrThrow({ where: { name: 'ADMIN' } });
     await db.userRole.upsert({
