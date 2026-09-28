@@ -1,5 +1,5 @@
 'use client';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm, useFieldArray, type FieldErrors } from 'react-hook-form';
@@ -36,44 +36,49 @@ import { Button } from '@/components/ui/button';
 import { Card, Loading, ErrorState, Spinner } from '@/components/ui/common';
 import { Dialog } from '@/components/ui/dialog';
 import { Summary } from './summary';
-import { api, openPdf } from '@/lib/api';
+import { api, openPdf, openArchivedPdf, pdfBlob } from '@/lib/api';
 import { today, thaiDate } from '@/lib/utils';
 import { toast } from 'sonner';
 const required = z.string().trim().min(1, 'กรุณากรอกข้อมูล');
 const schema = z
   .object({
+    issuerDisplayName: z.string().max(150).optional(),
+    quantityText: z.string().max(100).optional(),
     orderDate: required.regex(/^20\d{2}-\d{2}-\d{2}$/, 'กรุณาใช้ปี ค.ศ.'),
     departmentId: z.uuid('กรุณาเลือกแผนก'),
     description: required.max(20000),
     followAttachment: z.boolean(),
     productCode: required.max(100),
-    productName: required.max(300),
+    productName: z.string().max(300),
     quantity: z
       .number({ error: 'กรุณาระบุจำนวน' })
       .positive('จำนวนต้องมากกว่า 0')
-      .max(999999999999),
-    unit: required.max(30),
+      .max(999999999999)
+      .nullable(),
+    unit: z.string().max(30),
     machineId: z.uuid('กรุณาเลือกเครื่องจักร'),
     dueDate: required.regex(/^20\d{2}-\d{2}-\d{2}$/, 'กรุณาใช้ปี ค.ศ.'),
-    dueTime: required.regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'เวลาไม่ถูกต้อง'),
+    dueTime: z.string().regex(/^$|^([01]\d|2[0-3]):[0-5]\d$/, 'เวลาไม่ถูกต้อง'),
     priority: z.enum(priorities),
     reasonType: z.enum(reasons),
     reasonDetail: z.string().max(4000),
     specialInstructions: z.string().max(20000),
-    supervisorId: z.uuid('กรุณาเลือกหัวหน้าหน้างาน'),
-    approverId: z.uuid('กรุณาเลือกผู้อนุมัติ'),
+    supervisorId: z.union([z.uuid('กรุณาเลือกหัวหน้าหน้างาน'), z.literal('')]),
+    approverId: z.union([z.uuid('กรุณาเลือกผู้อนุมัติ'), z.literal('')]),
     materials: z.array(
       z.object({
         materialCode: required.max(100),
-        materialName: required.max(300),
-        quantity: z.number({ error: 'กรุณาระบุจำนวน' }).min(0, 'จำนวนห้ามติดลบ'),
-        unit: required.max(30),
+        materialName: z.string().max(300),
+        quantity: z.number({ error: 'กรุณาระบุจำนวน' }).min(0, 'จำนวนห้ามติดลบ').nullable(),
+        unit: z.string().max(30),
         remark: z.string().max(2000),
         sortOrder: z.number().int().min(0),
       }),
     ),
   })
   .superRefine((value, ctx) => {
+    if (value.quantity === null && !value.quantityText?.trim())
+      ctx.addIssue({ code: 'custom', path: ['quantityText'], message: 'กรุณาระบุข้อความแทนจำนวน' });
     if (value.dueDate < value.orderDate)
       ctx.addIssue({
         code: 'custom',
@@ -82,7 +87,7 @@ const schema = z
       });
     if (value.reasonType === 'OTHER' && !value.reasonDetail.trim())
       ctx.addIssue({ code: 'custom', path: ['reasonDetail'], message: 'กรุณาระบุเหตุผลเพิ่มเติม' });
-    if (value.supervisorId === value.approverId)
+    if (value.supervisorId && value.supervisorId === value.approverId)
       ctx.addIssue({
         code: 'custom',
         path: ['approverId'],
@@ -113,6 +118,8 @@ function Field({
 }
 function fromOrder(order: WorkOrder): WorkOrderInput {
   return {
+    issuerDisplayName: order.issuerDisplayName || order.issuer.name,
+    quantityText: order.quantityText || '',
     orderDate: order.orderDate.slice(0, 10),
     departmentId: order.departmentId,
     description: order.description,
@@ -187,6 +194,13 @@ function OrderForm({
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [preview, setPreview] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState('');
+  useEffect(
+    () => () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    },
+    [previewUrl],
+  );
   const [dragging, setDragging] = useState(false);
   const form = useForm<WorkOrderInput>({
     resolver: zodResolver(schema),
@@ -198,6 +212,8 @@ function OrderForm({
             : {}),
         }
       : {
+          issuerDisplayName: user?.name || '',
+          quantityText: '',
           orderDate: today(),
           departmentId: user!.departmentId,
           description: '',
@@ -208,7 +224,7 @@ function OrderForm({
           unit: 'ชิ้น',
           machineId: '',
           dueDate: today(),
-          dueTime: '16:30',
+          dueTime: '',
           priority: 'NORMAL',
           reasonType: 'URGENT',
           reasonDetail: '',
@@ -225,8 +241,13 @@ function OrderForm({
   function invalid(_errors: FieldErrors<WorkOrderInput>) {
     toast.error('กรุณาตรวจสอบช่องที่จำเป็นและข้อมูลที่ไม่ถูกต้อง');
   }
-  async function persist(values: WorkOrderInput, mode: 'draft' | 'submit' | 'print') {
+  async function persist(values: WorkOrderInput, mode: 'draft' | 'submit' | 'print' | 'pdf') {
     if (busy) return;
+    if (mode === 'submit' && (!values.supervisorId || !values.approverId)) {
+      toast.error('กรุณาระบุหัวหน้างานและผู้อนุมัติก่อนส่งอนุมัติ');
+      setConfirm(false);
+      return;
+    }
     setBusy(true);
     let savedId: string | undefined;
     try {
@@ -250,19 +271,43 @@ function OrderForm({
           method: 'POST',
           body: JSON.stringify({ version: order.version }),
         });
+      const archived = user?.permissions.includes('work_order.print')
+        ? await api<{ id: string; fileName: string }>(`/work-orders/${order.id}/pdf-archives`, {
+            method: 'POST',
+          })
+        : null;
       await queryClient.invalidateQueries();
       toast.success(mode === 'submit' ? 'ส่งอนุมัติเรียบร้อย' : 'บันทึกใบสั่งงานเรียบร้อย');
       if (mode === 'print') await openPdf(order.id, true);
+      if (mode === 'pdf' && archived)
+        await openArchivedPdf(order.id, archived.id, archived.fileName, true);
       router.push(`/work-orders/${order.id}`);
     } catch (e) {
       toast.error((e as Error).message);
       if (savedId) {
-        toast.info('ร่างถูกบันทึกแล้ว ตรวจสอบไฟล์แนบและส่งอนุมัติจากหน้ารายละเอียด');
+        toast.info(
+          'ข้อมูลใบงานบันทึกแล้ว กรุณาตรวจสอบไฟล์แนบหรือบันทึก PDF อีกครั้งจากหน้ารายละเอียด',
+        );
         router.push(`/work-orders/${savedId}`);
       }
     } finally {
       setBusy(false);
       setConfirm(false);
+    }
+  }
+  async function showPreview(values: WorkOrderInput) {
+    setBusy(true);
+    try {
+      const blob = await pdfBlob('/work-orders/preview', {
+        method: 'POST',
+        body: JSON.stringify(values),
+      });
+      setPreviewUrl(URL.createObjectURL(blob));
+      setPreview(true);
+    } catch (error) {
+      toast.error((error as Error).message);
+    } finally {
+      setBusy(false);
     }
   }
   function addFiles(incoming: File[]) {
@@ -293,12 +338,25 @@ function OrderForm({
               onClick={form.handleSubmit((values) => persist(values, 'draft'), invalid)}
             >
               <Save size={15} />
-              บันทึกร่าง
+              บันทึกร่าง + PDF
             </Button>
-            <Button variant="secondary" onClick={() => setPreview(true)}>
+            <Button
+              variant="secondary"
+              disabled={busy}
+              onClick={form.handleSubmit(showPreview, invalid)}
+            >
               <Eye size={15} />
-              Preview
+              ดูตัวอย่างใบจริง
             </Button>
+            {user?.permissions.includes('work_order.print') && (
+              <Button
+                disabled={busy}
+                onClick={form.handleSubmit((values) => persist(values, 'pdf'), invalid)}
+              >
+                <Save size={15} />
+                บันทึกและดาวน์โหลด PDF
+              </Button>
+            )}
             {user?.permissions.includes('work_order.print') && (
               <Button
                 variant="secondary"
@@ -341,7 +399,11 @@ function OrderForm({
                   <input type="date" aria-label="วันที่สั่งการ" {...register('orderDate')} />
                 </Field>
                 <Field label="ผู้สั่งงาน">
-                  <input disabled value={editing ? initial!.issuer.name : user?.name} />
+                  <input
+                    aria-label="ผู้สั่งงานในเอกสาร"
+                    maxLength={150}
+                    {...register('issuerDisplayName')}
+                  />
                 </Field>
                 <Field label="แผนก" required error={errors.departmentId?.message}>
                   <select
@@ -380,7 +442,15 @@ function OrderForm({
                 />
               </Field>
               <label className="my-4 flex items-center gap-2 text-xs text-slate-600">
-                <input type="checkbox" {...register('followAttachment')} />
+                <input
+                  type="checkbox"
+                  {...register('followAttachment')}
+                  onChange={(e) => {
+                    form.setValue('followAttachment', e.target.checked);
+                    if (e.target.checked && !form.getValues('description'))
+                      form.setValue('description', 'ตามเอกสารแนบท้าย');
+                  }}
+                />
                 ตามเอกสารแนบท้าย
               </label>
               <div
@@ -456,14 +526,18 @@ function OrderForm({
             </Card>
             <Card title="ข้อมูลชิ้นงาน" subtitle="03 / PRODUCT INFORMATION">
               <div className="grid gap-5 sm:grid-cols-2">
-                <Field label="รหัสชิ้นงาน" required error={errors.productCode?.message}>
+                <Field
+                  label="รหัสชิ้นงาน/ชื่อสินค้า (Product ID/Name)"
+                  required
+                  error={errors.productCode?.message}
+                >
                   <input
                     aria-label="รหัสชิ้นงาน"
                     placeholder="เช่น CALP2609-067"
                     {...register('productCode')}
                   />
                 </Field>
-                <Field label="ชื่อสินค้า" required error={errors.productName?.message}>
+                <Field label="ชื่อสินค้าเพิ่มเติม (ถ้ามี)" error={errors.productName?.message}>
                   <input
                     aria-label="ชื่อสินค้า"
                     placeholder="ระบุชื่อชิ้นงาน / สินค้า"
@@ -472,14 +546,36 @@ function OrderForm({
                 </Field>
                 <div className="grid grid-cols-2 gap-4">
                   <Field label="จำนวนที่สั่งผลิต" required error={errors.quantity?.message}>
-                    <input
-                      aria-label="จำนวนที่สั่งผลิต"
-                      type="number"
-                      step="0.0001"
-                      {...register('quantity', { valueAsNumber: true })}
-                    />
+                    {data.quantity === null ? (
+                      <input
+                        aria-label="ข้อความแทนจำนวน"
+                        placeholder="ตามเอกสารแนบท้าย"
+                        {...register('quantityText')}
+                      />
+                    ) : (
+                      <input
+                        aria-label="จำนวนที่สั่งผลิต"
+                        type="number"
+                        step="0.0001"
+                        {...register('quantity', { valueAsNumber: true })}
+                      />
+                    )}
+                    <label className="mt-2 flex items-center gap-2 text-xs">
+                      <input
+                        type="checkbox"
+                        checked={data.quantity === null}
+                        onChange={(e) => {
+                          form.setValue('quantity', e.target.checked ? null : 1);
+                          form.setValue('quantityText', e.target.checked ? 'ตามเอกสารแนบท้าย' : '');
+                        }}
+                      />
+                      ใช้ข้อความแทนจำนวน
+                    </label>
+                    {errors.quantityText && (
+                      <p className="text-xs text-red-600">{errors.quantityText.message}</p>
+                    )}
                   </Field>
-                  <Field label="หน่วยนับ" required error={errors.unit?.message}>
+                  <Field label="หน่วยนับ (Unit)" error={errors.unit?.message}>
                     <input aria-label="หน่วยนับ" {...register('unit')} />
                   </Field>
                 </div>
@@ -498,7 +594,7 @@ function OrderForm({
                 <Field label="กำหนดส่งงาน" required error={errors.dueDate?.message}>
                   <input type="date" aria-label="กำหนดส่งงาน" {...register('dueDate')} />
                 </Field>
-                <Field label="เวลา" required error={errors.dueTime?.message}>
+                <Field label="เวลา (เว้นว่างได้)" error={errors.dueTime?.message}>
                   <input type="time" aria-label="เวลา" {...register('dueTime')} />
                 </Field>
               </div>
@@ -515,8 +611,8 @@ function OrderForm({
                     materials.append({
                       materialCode: '',
                       materialName: '',
-                      quantity: 1,
-                      unit: 'ชิ้น',
+                      quantity: null,
+                      unit: '',
                       remark: '',
                       sortOrder: materials.fields.length,
                     })
@@ -534,9 +630,9 @@ function OrderForm({
                       {[
                         '#',
                         'รหัสวัตถุดิบ *',
-                        'ชื่อวัตถุดิบ *',
-                        'จำนวน *',
-                        'หน่วย *',
+                        'ชื่อวัตถุดิบ (ถ้ามี)',
+                        'จำนวนที่ใช้',
+                        'หน่วย',
                         'หมายเหตุ',
                         'จัดการ',
                       ].map((h) => (
@@ -564,7 +660,9 @@ function OrderForm({
                               step={key === 'quantity' ? '0.0001' : undefined}
                               {...register(
                                 `materials.${i}.${key}`,
-                                key === 'quantity' ? { valueAsNumber: true } : {},
+                                key === 'quantity'
+                                  ? { setValueAs: (value) => (value === '' ? null : Number(value)) }
+                                  : {},
                               )}
                             />
                             <p className="mt-1 text-[10px] text-red-600">
@@ -645,6 +743,7 @@ function OrderForm({
               machine={masters.machines.find((m) => m.id === data.machineId)?.name ?? ''}
               dueDate={data.dueDate}
               quantity={data.quantity}
+              quantityText={data.quantityText}
               unit={data.unit}
               productCode={data.productCode}
             />
@@ -657,14 +756,13 @@ function OrderForm({
                   <Field
                     key={key}
                     label={i === 0 ? 'ผู้รับสั่งงาน / หัวหน้า' : 'ผู้อนุมัติ'}
-                    required
                     error={errors[key]?.message}
                   >
                     <select
                       aria-label={i === 0 ? 'ผู้รับสั่งงาน / หัวหน้า' : 'ผู้อนุมัติ'}
                       {...register(key)}
                     >
-                      <option value="">เลือกผู้รับผิดชอบ</option>
+                      <option value="">เว้นว่าง / เลือกก่อนส่งอนุมัติ</option>
                       {masters.people
                         .filter(
                           (p) =>
@@ -683,7 +781,8 @@ function OrderForm({
               </div>
               <p className="mt-4 flex items-center gap-2 text-[10px] text-slate-400">
                 <Check size={12} />
-                ตรวจสอบสิทธิ์ผู้รับผิดชอบโดยระบบ
+                บันทึกร่างและ PDF ได้ก่อนเลือกผู้อนุมัติ
+                ช่องลงชื่อในใบพิมพ์จะเว้นว่างจนกว่าจะอนุมัติ
               </p>
             </Card>
           </aside>
@@ -692,7 +791,9 @@ function OrderForm({
           <span className="text-xs text-slate-400">
             * ช่องที่จำเป็น · บันทึกเป็นร่างก่อนส่งอนุมัติ
           </span>
-          <Button disabled={busy}>{busy ? <Spinner /> : <Save size={15} />}บันทึกเอกสาร</Button>
+          <Button disabled={busy}>
+            {busy ? <Spinner /> : <Save size={15} />}บันทึกเอกสารและเก็บ PDF
+          </Button>
         </div>
       </form>
       <Dialog
@@ -718,31 +819,16 @@ function OrderForm({
         open={preview}
         onOpenChange={setPreview}
         title="ตัวอย่างใบสั่งงาน"
-        description="ตรวจสอบข้อมูลปัจจุบันก่อนบันทึก"
+        description="แบบเดียวกับ PDF ที่จะบันทึก เลขที่เอกสารจริงจะออกเมื่อบันทึก"
+        wide
       >
-        <div className="max-h-[65vh] space-y-4 overflow-y-auto text-sm">
-          <p className="font-semibold">AUTO-TECHSYSTEM · TEMPORARY WORK ORDER</p>
-          <p>
-            รหัสชิ้นงาน: {data.productCode || '—'} · {data.productName || '—'}
-          </p>
-          <p>
-            จำนวน {data.quantity} {data.unit} ·{' '}
-            {masters.machines.find((m) => m.id === data.machineId)?.name}
-          </p>
-          <p>
-            กำหนดส่ง {thaiDate(data.dueDate)} {data.dueTime}
-          </p>
-          <p className="whitespace-pre-wrap">{data.description || 'ยังไม่มีรายละเอียดงานผลิต'}</p>
-          <p className="whitespace-pre-wrap">{data.specialInstructions}</p>
-          {data.materials.map((m, i) => (
-            <p key={i}>
-              {i + 1}. {m.materialCode} {m.materialName} — {m.quantity} {m.unit}
-            </p>
-          ))}
-          <p>
-            เหตุผล: {reasonLabels[data.reasonType]} {data.reasonDetail}
-          </p>
-        </div>
+        {previewUrl && (
+          <iframe
+            title="ตัวอย่าง PDF ใบสั่งงาน"
+            src={previewUrl}
+            className="h-[70vh] w-full rounded border border-slate-200"
+          />
+        )}
       </Dialog>
     </>
   );

@@ -63,10 +63,14 @@ export async function api<T>(path: string, options: RequestInit = {}, retry = tr
   }
   return decode<T>(response);
 }
-export async function pdfBlob(path: string): Promise<Blob> {
+export async function pdfBlob(path: string, options: RequestInit = {}): Promise<Blob> {
   const request = () =>
     fetch(`${baseUrl()}${path}`, {
-      headers: { Authorization: `Bearer ${token}` },
+      ...options,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+      },
       credentials: 'include',
     });
   let response = await request();
@@ -76,6 +80,29 @@ export async function pdfBlob(path: string): Promise<Blob> {
   }
   if (!response.ok) await decode(response);
   return response.blob();
+}
+export async function openArchivedPdf(
+  id: string,
+  archiveId: string,
+  fileName: string,
+  download = false,
+) {
+  const target = download ? null : window.open('about:blank', '_blank');
+  try {
+    const blob = await pdfBlob(`/work-orders/${id}/pdf-archives/${archiveId}`);
+    const url = URL.createObjectURL(blob);
+    if (target) target.location.href = url;
+    else {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      link.click();
+    }
+    window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (error) {
+    target?.close();
+    throw error;
+  }
 }
 export async function openPdf(id: string, print = false) {
   // Open synchronously to keep the browser popup permission from the click event.

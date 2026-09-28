@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/common';
 import { Dialog } from '@/components/ui/dialog';
 import { Summary, ApprovalPanel } from './summary';
+import { PdfHistory } from './pdf-history';
 import { toast } from 'sonner';
 const labels: Record<string, string> = {
   submit: 'ส่งอนุมัติ',
@@ -58,6 +59,7 @@ const auditLabels: Record<string, string> = {
   COMPLETE: 'ปิดงาน',
   CANCEL: 'ยกเลิก',
   ATTACH: 'แนบไฟล์',
+  SAVE_PDF: 'บันทึกสำเนา PDF',
 };
 export function OrderDetail({ id }: { id: string }) {
   const { user } = useAuth();
@@ -126,6 +128,7 @@ export function OrderDetail({ id }: { id: string }) {
     setBusy(true);
     try {
       await openPdf(order.id, mode);
+      await client.invalidateQueries({ queryKey: ['pdf-history', order.id] });
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -305,7 +308,7 @@ export function OrderDetail({ id }: { id: string }) {
                 ['ชื่อสินค้า', order.productName],
                 [
                   'จำนวนที่สั่งผลิต',
-                  `${order.quantity.toLocaleString('th-TH', { maximumFractionDigits: 4 })} ${order.unit}`,
+                  `${order.quantityText || order.quantity?.toLocaleString('th-TH', { maximumFractionDigits: 4 }) || '—'} ${order.unit}`,
                 ],
                 ['ไลน์ผลิต / เครื่องจักร', order.machine.name],
                 ['กำหนดส่งงาน', thaiDate(order.dueDate)],
@@ -364,6 +367,7 @@ export function OrderDetail({ id }: { id: string }) {
               </p>
             )}
           </Card>
+          <PdfHistory id={order.id} canDownload={!!owner && can('print')} />
           <Card
             title="ประวัติการดำเนินงาน"
             subtitle="ACTIVITY TIMELINE · AUDIT LOG"
@@ -412,6 +416,7 @@ export function OrderDetail({ id }: { id: string }) {
             machine={order.machine.name}
             dueDate={order.dueDate}
             quantity={order.quantity}
+            quantityText={order.quantityText}
             unit={order.unit}
             productCode={order.productCode}
             status={order.status}

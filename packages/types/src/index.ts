@@ -55,7 +55,7 @@ export interface Material {
   id?: string;
   materialCode: string;
   materialName: string;
-  quantity: number;
+  quantity: number | null;
   unit: string;
   remark: string;
   sortOrder: number;
@@ -86,13 +86,15 @@ export interface AuditEvent {
   newValue: unknown;
 }
 export interface WorkOrderInput {
+  issuerDisplayName?: string;
+  quantityText?: string;
   orderDate: string;
   departmentId: string;
   description: string;
   followAttachment: boolean;
   productCode: string;
   productName: string;
-  quantity: number;
+  quantity: number | null;
   unit: string;
   machineId: string;
   dueDate: string;
@@ -104,6 +106,17 @@ export interface WorkOrderInput {
   supervisorId: string;
   approverId: string;
   materials: Material[];
+}
+export interface PdfArchive {
+  id: string;
+  orderVersion: number;
+  templateVersion: string;
+  documentNo: string;
+  fileName: string;
+  size: number;
+  sha256: string;
+  createdAt: string;
+  createdBy: { name: string };
 }
 export interface WorkOrder extends WorkOrderInput {
   id: string;

@@ -60,6 +60,8 @@ export class WorkOrdersService {
       throw new ForbiddenException('เฉพาะผู้สั่งงานเจ้าของเอกสาร');
   }
   private async validateInput(dto: CreateWorkOrderDto, actor: Actor) {
+    if (dto.quantity == null && !dto.quantityText?.trim())
+      throw new BadRequestException('กรุณาระบุจำนวนหรือข้อความแทนจำนวน');
     if (dto.dueDate < dto.orderDate)
       throw new BadRequestException('กำหนดส่งต้องไม่ก่อนวันที่สั่งการ');
     if (dto.reasonType === 'OTHER' && !dto.reasonDetail.trim())
@@ -67,7 +69,7 @@ export class WorkOrdersService {
     if (!actor.roles.includes('ADMIN') && dto.departmentId !== actor.departmentId)
       throw new ForbiddenException('ไม่สามารถเปลี่ยนแผนกได้');
     if (
-      dto.supervisorId === dto.approverId ||
+      (dto.supervisorId && dto.supervisorId === dto.approverId) ||
       dto.supervisorId === actor.id ||
       dto.approverId === actor.id
     )
@@ -78,6 +80,7 @@ export class WorkOrdersService {
       [dto.supervisorId, 'SUPERVISOR'],
       [dto.approverId, 'APPROVER'],
     ]) {
+      if (!id) continue;
       const assigned = await this.db.user.findFirst({
         where: { id, active: true, roles: { some: { role: { name: { in: [role, 'ADMIN'] } } } } },
       });
@@ -90,6 +93,8 @@ export class WorkOrdersService {
       departmentId: dto.departmentId,
       description: dto.description,
       followAttachment: dto.followAttachment,
+      issuerDisplayName: dto.issuerDisplayName?.trim() ?? '',
+      quantityText: dto.quantity == null ? (dto.quantityText?.trim() ?? '') : '',
       productCode: dto.productCode,
       productName: dto.productName,
       quantity: dto.quantity,
@@ -116,8 +121,12 @@ export class WorkOrdersService {
           approvals: {
             create: [
               { userId: actor.id, stage: 'ISSUER' },
-              { userId: dto.supervisorId, stage: 'SUPERVISOR' },
-              { userId: dto.approverId, stage: 'APPROVER' },
+              ...(dto.supervisorId
+                ? [{ userId: dto.supervisorId, stage: ApprovalStage.SUPERVISOR }]
+                : []),
+              ...(dto.approverId
+                ? [{ userId: dto.approverId, stage: ApprovalStage.APPROVER }]
+                : []),
             ],
           },
         },
@@ -142,17 +151,20 @@ export class WorkOrdersService {
   }
   serialize<
     T extends {
-      quantity: Prisma.Decimal;
-      materials: { quantity: Prisma.Decimal }[];
+      quantity: Prisma.Decimal | null;
+      materials: { quantity: Prisma.Decimal | null }[];
       approvals: { stage: ApprovalStage; userId: string }[];
     },
   >(order: T) {
     return {
       ...order,
-      quantity: Number(order.quantity),
-      materials: order.materials.map((m) => ({ ...m, quantity: Number(m.quantity) })),
-      supervisorId: order.approvals.find((a) => a.stage === 'SUPERVISOR')?.userId,
-      approverId: order.approvals.find((a) => a.stage === 'APPROVER')?.userId,
+      quantity: order.quantity === null ? null : Number(order.quantity),
+      materials: order.materials.map((m) => ({
+        ...m,
+        quantity: m.quantity === null ? null : Number(m.quantity),
+      })),
+      supervisorId: order.approvals.find((a) => a.stage === 'SUPERVISOR')?.userId ?? '',
+      approverId: order.approvals.find((a) => a.stage === 'APPROVER')?.userId ?? '',
     };
   }
   async update(id: string, dto: UpdateWorkOrderDto, actor: Actor, context: AuditContext) {
@@ -188,11 +200,15 @@ export class WorkOrdersService {
       for (const [stage, userId] of [
         ['SUPERVISOR', merged.supervisorId],
         ['APPROVER', merged.approverId],
-      ] as const)
-        await tx.workOrderApproval.update({
-          where: { workOrderId_stage: { workOrderId: id, stage } },
-          data: { userId },
-        });
+      ] as const) {
+        if (userId)
+          await tx.workOrderApproval.upsert({
+            where: { workOrderId_stage: { workOrderId: id, stage } },
+            update: { userId },
+            create: { workOrderId: id, stage, userId },
+          });
+        else await tx.workOrderApproval.deleteMany({ where: { workOrderId: id, stage } });
+      }
       const updated = await tx.workOrder.findUniqueOrThrow({
         where: { id },
         include: orderInclude,
@@ -213,6 +229,11 @@ export class WorkOrdersService {
       if (!old) throw new NotFoundException('ไม่พบใบสั่งงาน');
       if (action === 'submit') {
         this.assertOwner(actor, old);
+        if (
+          !old.approvals.some((a) => a.stage === 'SUPERVISOR') ||
+          !old.approvals.some((a) => a.stage === 'APPROVER')
+        )
+          throw new BadRequestException('กรุณาระบุหัวหน้างานและผู้อนุมัติก่อนส่งอนุมัติ');
         if (old.followAttachment && old.attachments.length === 0)
           throw new BadRequestException('กรุณาแนบเอกสารก่อนส่งอนุมัติ');
       }

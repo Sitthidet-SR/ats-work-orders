@@ -66,6 +66,7 @@ model User {
   attachments WorkOrderAttachment[]
   auditLogs AuditLog[]
   refreshTokens RefreshToken[]
+  pdfArchives WorkOrderPdf[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   @@map("users")
@@ -130,9 +131,11 @@ model WorkOrder {
   departmentId String @db.Uuid
   description String
   followAttachment Boolean @default(false)
+  issuerDisplayName String @default("")
+  quantityText String @default("")
   productCode String
   productName String
-  quantity Decimal @db.Decimal(16,4)
+  quantity Decimal? @db.Decimal(16,4)
   unit String
   machineId String @db.Uuid
   dueDate DateTime @db.Date
@@ -149,6 +152,7 @@ model WorkOrder {
   materials WorkOrderMaterial[]
   attachments WorkOrderAttachment[]
   approvals WorkOrderApproval[]
+  pdfArchives WorkOrderPdf[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   @@index([status,dueDate])
@@ -162,7 +166,7 @@ model WorkOrderMaterial {
   workOrder WorkOrder @relation(fields:[workOrderId],references:[id],onDelete:Cascade)
   materialCode String
   materialName String
-  quantity Decimal @db.Decimal(16,4)
+  quantity Decimal? @db.Decimal(16,4)
   unit String
   remark String @default("")
   sortOrder Int
@@ -227,4 +231,23 @@ model RefreshToken {
   createdAt DateTime @default(now())
   @@index([userId,familyId])
   @@map("refresh_tokens")
+}
+model WorkOrderPdf {
+  id String @id @default(uuid()) @db.Uuid
+  workOrderId String @db.Uuid
+  workOrder WorkOrder @relation(fields:[workOrderId],references:[id])
+  orderVersion Int
+  templateVersion String
+  documentNo String
+  fileName String
+  content Bytes
+  size Int
+  sha256 String
+  snapshot Json
+  createdById String @db.Uuid
+  createdBy User @relation(fields:[createdById],references:[id])
+  createdAt DateTime @default(now())
+  @@unique([workOrderId,orderVersion,templateVersion])
+  @@index([workOrderId,createdAt])
+  @@map("work_order_pdfs")
 }

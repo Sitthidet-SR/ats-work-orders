@@ -7,6 +7,7 @@ export function Summary({
   machine,
   dueDate,
   quantity,
+  quantityText,
   unit,
   productCode,
   status = 'DRAFT',
@@ -14,7 +15,8 @@ export function Summary({
   priority: 'NORMAL' | 'URGENT' | 'CRITICAL';
   machine: string;
   dueDate: string;
-  quantity: number;
+  quantity: number | null;
+  quantityText?: string;
   unit: string;
   productCode: string;
   status?: WorkOrderStatus;
@@ -33,7 +35,11 @@ export function Summary({
         {[
           [Factory, 'เครื่องจักร', machine || '—'],
           [CalendarDays, 'กำหนดส่ง', thaiDate(dueDate)],
-          [Package, 'จำนวน', `${Number.isFinite(quantity) ? quantity : 0} ${unit}`],
+          [
+            Package,
+            'จำนวน',
+            `${quantityText || (Number.isFinite(quantity) ? quantity : '—')} ${unit}`,
+          ],
         ].map(([Icon, label, value]) => {
           const I = Icon as typeof Factory;
           return (

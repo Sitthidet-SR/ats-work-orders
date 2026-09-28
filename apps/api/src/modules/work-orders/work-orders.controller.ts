@@ -42,6 +42,40 @@ export class WorkOrdersController {
   @Get() @RequirePermission('work_order.read') list(@Query() query: ListWorkOrdersDto) {
     return this.orders.list(query);
   }
+  @Post('preview') @RequirePermission('work_order.create') async preview(
+    @Body() dto: CreateWorkOrderDto,
+    @Req() req: AuthRequest,
+    @Res() res: Response,
+  ) {
+    const buffer = await this.pdf.preview(dto, req.user);
+    res.type('application/pdf').setHeader('Cache-Control', 'private, no-store');
+    res.send(buffer);
+  }
+  @Post(':id/pdf-archives') @RequirePermission('work_order.print') async savePdf(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthRequest,
+  ) {
+    const result = await this.pdf.generate(id, req.user, 'work_order.print');
+    return { id: result.id, fileName: result.fileName };
+  }
+  @Get(':id/pdf-archives') @RequirePermission('work_order.read') pdfHistory(
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.pdf.history(id);
+  }
+  @Get(':id/pdf-archives/:archiveId') @RequirePermission('work_order.print') async archivedPdf(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('archiveId', ParseUUIDPipe) archiveId: string,
+    @Req() req: AuthRequest,
+    @Res() res: Response,
+  ) {
+    const result = await this.pdf.archived(id, archiveId, req.user);
+    res
+      .type('application/pdf')
+      .setHeader('Cache-Control', 'private, no-store')
+      .setHeader('Content-Disposition', `inline; filename="${result.fileName}"`);
+    res.send(result.buffer);
+  }
   @Post() @RequirePermission('work_order.create') create(
     @Body() dto: CreateWorkOrderDto,
     @Req() req: AuthRequest,

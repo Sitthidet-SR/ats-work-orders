@@ -100,7 +100,9 @@ export function OrderTable({
                 </td>
                 <td className="whitespace-nowrap">
                   <b className="font-medium">
-                    {order.quantity.toLocaleString('th-TH', { maximumFractionDigits: 4 })}
+                    {order.quantityText ||
+                      order.quantity?.toLocaleString('th-TH', { maximumFractionDigits: 4 }) ||
+                      '—'}
                   </b>{' '}
                   <span className="text-[10px] text-slate-400">{order.unit}</span>
                 </td>
