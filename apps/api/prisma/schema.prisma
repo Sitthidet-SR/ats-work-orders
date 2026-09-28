@@ -1,0 +1,230 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+enum WorkOrderStatus {
+  DRAFT
+  SUBMITTED
+  SUPERVISOR_REVIEW
+  WAITING_APPROVAL
+  APPROVED
+  ISSUED
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
+  CANCELLED
+}
+enum Priority {
+  NORMAL
+  URGENT
+  CRITICAL
+}
+enum ReasonType {
+  REWORK
+  SAMPLE
+  ERP_FAILURE
+  URGENT
+  OTHER
+}
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+enum ApprovalStage {
+  ISSUER
+  SUPERVISOR
+  APPROVER
+}
+model Department {
+  id String @id @default(uuid()) @db.Uuid
+  code String @unique
+  name String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  users User[]
+  workOrders WorkOrder[]
+  @@map("departments")
+}
+model User {
+  id String @id @default(uuid()) @db.Uuid
+  email String @unique
+  username String @unique
+  name String
+  position String
+  passwordHash String
+  active Boolean @default(true)
+  departmentId String @db.Uuid
+  department Department @relation(fields:[departmentId], references:[id])
+  roles UserRole[]
+  workOrders WorkOrder[]
+  approvals WorkOrderApproval[] @relation("AssignedApproval")
+  decidedApprovals WorkOrderApproval[] @relation("DecidedApproval")
+  attachments WorkOrderAttachment[]
+  auditLogs AuditLog[]
+  refreshTokens RefreshToken[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@map("users")
+}
+model Role {
+  id String @id @default(uuid()) @db.Uuid
+  name String @unique
+  users UserRole[]
+  permissions RolePermission[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@map("roles")
+}
+model Permission {
+  id String @id @default(uuid()) @db.Uuid
+  name String @unique
+  roles RolePermission[]
+  @@map("permissions")
+}
+model UserRole {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  roleId String @db.Uuid
+  user User @relation(fields:[userId],references:[id])
+  role Role @relation(fields:[roleId],references:[id])
+  @@unique([userId,roleId])
+  @@map("user_roles")
+}
+model RolePermission {
+  id String @id @default(uuid()) @db.Uuid
+  roleId String @db.Uuid
+  permissionId String @db.Uuid
+  role Role @relation(fields:[roleId],references:[id])
+  permission Permission @relation(fields:[permissionId],references:[id])
+  @@unique([roleId,permissionId])
+  @@map("role_permissions")
+}
+model Machine {
+  id String @id @default(uuid()) @db.Uuid
+  code String @unique
+  name String
+  description String?
+  active Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  workOrders WorkOrder[]
+  @@map("machines")
+}
+model DocumentSequence {
+  id String @id @default(uuid()) @db.Uuid
+  period String @unique
+  value Int @default(0)
+  updatedAt DateTime @updatedAt
+  @@map("document_sequences")
+}
+model WorkOrder {
+  id String @id @default(uuid()) @db.Uuid
+  publicReference String @unique @default(uuid()) @db.Uuid
+  documentNo String @unique
+  orderDate DateTime @db.Date
+  issuerId String @db.Uuid
+  departmentId String @db.Uuid
+  description String
+  followAttachment Boolean @default(false)
+  productCode String
+  productName String
+  quantity Decimal @db.Decimal(16,4)
+  unit String
+  machineId String @db.Uuid
+  dueDate DateTime @db.Date
+  dueTime String
+  priority Priority @default(NORMAL)
+  reasonType ReasonType
+  reasonDetail String @default("")
+  specialInstructions String @default("")
+  status WorkOrderStatus @default(DRAFT)
+  version Int @default(0)
+  issuer User @relation(fields:[issuerId],references:[id])
+  department Department @relation(fields:[departmentId],references:[id])
+  machine Machine @relation(fields:[machineId],references:[id])
+  materials WorkOrderMaterial[]
+  attachments WorkOrderAttachment[]
+  approvals WorkOrderApproval[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([status,dueDate])
+  @@index([issuerId,orderDate])
+  @@index([machineId,departmentId])
+  @@map("work_orders")
+}
+model WorkOrderMaterial {
+  id String @id @default(uuid()) @db.Uuid
+  workOrderId String @db.Uuid
+  workOrder WorkOrder @relation(fields:[workOrderId],references:[id],onDelete:Cascade)
+  materialCode String
+  materialName String
+  quantity Decimal @db.Decimal(16,4)
+  unit String
+  remark String @default("")
+  sortOrder Int
+  @@index([workOrderId,sortOrder])
+  @@map("work_order_materials")
+}
+model WorkOrderAttachment {
+  id String @id @default(uuid()) @db.Uuid
+  workOrderId String @db.Uuid
+  workOrder WorkOrder @relation(fields:[workOrderId],references:[id])
+  fileName String
+  size Int
+  mimeType String
+  storageKey String @unique
+  url String
+  uploaderId String @db.Uuid
+  uploader User @relation(fields:[uploaderId],references:[id])
+  createdAt DateTime @default(now())
+  @@index([workOrderId])
+  @@map("work_order_attachments")
+}
+model WorkOrderApproval {
+  id String @id @default(uuid()) @db.Uuid
+  workOrderId String @db.Uuid
+  workOrder WorkOrder @relation(fields:[workOrderId],references:[id])
+  userId String @db.Uuid
+  user User @relation("AssignedApproval", fields:[userId],references:[id])
+  decidedById String? @db.Uuid
+  decidedBy User? @relation("DecidedApproval", fields:[decidedById],references:[id])
+  stage ApprovalStage
+  status ApprovalStatus @default(PENDING)
+  comment String?
+  decidedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([workOrderId,stage])
+  @@map("work_order_approvals")
+}
+model AuditLog {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  user User @relation(fields:[userId],references:[id])
+  action String
+  entityType String
+  entityId String @db.Uuid
+  oldValue Json?
+  newValue Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  @@index([entityType,entityId,createdAt])
+  @@map("audit_logs")
+}
+model RefreshToken {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  user User @relation(fields:[userId],references:[id])
+  tokenHash String @unique
+  familyId String @db.Uuid
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([userId,familyId])
+  @@map("refresh_tokens")
+}

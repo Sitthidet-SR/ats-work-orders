@@ -1,0 +1,49 @@
+{
+  "name": "api",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "tsc -p tsconfig.build.json && node --watch dist/main.js",
+    "build": "prisma generate && tsc -p tsconfig.build.json",
+    "start:prod": "node dist/main.js",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:seed": "tsx prisma/seed.ts",
+    "storage:init": "tsx scripts/storage-init.ts",
+    "test": "tsx --test test/workflow.test.ts",
+    "test:integration": "tsx --test test/integration.test.ts"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.1.17",
+    "@nestjs/core": "^11.1.17",
+    "@nestjs/platform-express": "^11.1.17",
+    "@nestjs/jwt": "^11.0.2",
+    "@nestjs/swagger": "^11.2.6",
+    "@nestjs/throttler": "^6.5.0",
+    "@prisma/client": "6.19.3",
+    "@aws-sdk/client-s3": "^3.1009.0",
+    "@aws-sdk/s3-request-presigner": "^3.1009.0",
+    "bcrypt": "^6.0.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.3",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^17.3.1",
+    "helmet": "^8.1.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "playwright": "^1.58.2",
+    "qrcode": "^1.5.4",
+    "file-type": "^21.3.0"
+  },
+  "devDependencies": {
+    "prisma": "6.19.3",
+    "tsx": "^4.21.0",
+    "@types/node": "^24.12.0",
+    "@types/express": "^5.0.6",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/bcrypt": "^6.0.0",
+    "@types/multer": "^2.0.0",
+    "@types/qrcode": "^1.5.6"
+  }
+}
