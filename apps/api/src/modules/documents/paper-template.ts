@@ -139,6 +139,9 @@ export function paperHtml(order: PaperOrder, template: Buffer, font: Buffer) {
     .appendix{padding:48px;font-size:15px;line-height:1.6;break-before:page}h1{font-size:20px}h2{font-size:16px}p{white-space:pre-wrap;overflow-wrap:anywhere}table{width:100%;border-collapse:collapse}th,td{border:1px solid #555;padding:7px;text-align:left;overflow-wrap:anywhere}tr{break-inside:avoid}thead{display:table-header-group}
   </style></head><body><div class="page"><div class="sheet">${fields.join('')}
     <div class="writing" style="left:113px;top:1068px;width:1057px;height:99px">${escapeHtml(instructions)}</div>
+    <span style="position:absolute;left:137px;top:1223px;font-size:23px;font-weight:bold;">)</span>
+    <span style="position:absolute;left:359px;top:1223px;font-size:23px;font-weight:bold;">)</span>
+    <span style="position:absolute;left:634px;top:1223px;font-size:23px;font-weight:bold;">)</span>
     ${mark(121, 1223, order.reasonType === 'REWORK')}${mark(343, 1223, order.reasonType === 'SAMPLE')}${mark(618, 1223, order.reasonType === 'ERP_FAILURE')}${mark(124, 1269, other)}
     <div class="writing" style="left:267px;top:1255px;width:900px;height:48px;text-decoration:underline">${escapeHtml(other ? reason : '')}</div>
     <div class="writing" style="left:113px;top:1304px;width:1057px;height:39px"></div>
