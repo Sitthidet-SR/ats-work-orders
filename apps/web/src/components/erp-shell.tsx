@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
 import {
@@ -56,12 +57,19 @@ const navigation = [
 export function Brand({ light = false }: { light?: boolean }) {
   return (
     <div className="flex items-center gap-3">
-      <span className="text-[34px] font-bold italic leading-none tracking-[-3px] text-[#c62836]">
-        ATS
-        <span className="ml-1 inline-block h-5 w-[3px] bg-[#c62836]" />
-      </span>
+      <div className={`shrink-0 ${light ? 'rounded-lg bg-white px-2' : ''}`}>
+        <Image
+          src="/logo.png"
+          alt="ATS Auto-Techsystem"
+          width={445}
+          height={315}
+          className="h-auto w-[105px]"
+          loading="eager"
+          unoptimized
+        />
+      </div>
       <div
-        className={`border-l pl-3 ${light ? 'border-white/20 text-white' : 'border-slate-200 text-slate-700'}`}
+        className={`hidden border-l pl-3 sm:block ${light ? 'border-white/20 text-white' : 'border-slate-200 text-slate-700'}`}
       >
         <div className="text-[11px] font-bold tracking-[1.3px]">COMPANY PLATFORM</div>
         <div
