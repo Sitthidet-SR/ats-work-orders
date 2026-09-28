@@ -83,20 +83,21 @@ export function OrderDetail({ id }: { id: string }) {
   const actions: { key: string; label: string; icon: typeof Check }[] = [];
   if (order.status === 'DRAFT' && owner && can('submit'))
     actions.push({ key: 'submit', label: labels.submit, icon: Send });
-  if (
-    ['SUBMITTED', 'SUPERVISOR_REVIEW'].includes(order.status) &&
-    assigned('SUPERVISOR') &&
-    can('supervisor_review')
-  )
-    actions.push({
-      key: 'supervisor-review',
-      label: order.status === 'SUBMITTED' ? 'รับงานตรวจสอบ' : 'ตรวจสอบแล้ว ส่งผู้อนุมัติ',
-      icon: Check,
-    });
-  if (order.status === 'WAITING_APPROVAL' && assigned('APPROVER')) {
-    if (can('approve')) actions.push({ key: 'approve', label: labels.approve, icon: Check });
-    if (can('reject')) actions.push({ key: 'reject', label: labels.reject, icon: X });
-  }
+  // TODO: เปิดใช้งานเมื่อข้อมูลผู้รับสั่งงาน/ผู้อนุมัติพร้อม
+  // if (
+  //   ['SUBMITTED', 'SUPERVISOR_REVIEW'].includes(order.status) &&
+  //   assigned('SUPERVISOR') &&
+  //   can('supervisor_review')
+  // )
+  //   actions.push({
+  //     key: 'supervisor-review',
+  //     label: order.status === 'SUBMITTED' ? 'รับงานตรวจสอบ' : 'ตรวจสอบแล้ว ส่งผู้อนุมัติ',
+  //     icon: Check,
+  //   });
+  // if (order.status === 'WAITING_APPROVAL' && assigned('APPROVER')) {
+  //   if (can('approve')) actions.push({ key: 'approve', label: labels.approve, icon: Check });
+  //   if (can('reject')) actions.push({ key: 'reject', label: labels.reject, icon: X });
+  // }
   for (const [status, key, Icon] of [
     ['APPROVED', 'issue', FileCheck2],
     ['ISSUED', 'start', Play],
@@ -421,7 +422,8 @@ export function OrderDetail({ id }: { id: string }) {
             productCode={order.productCode}
             status={order.status}
           />
-          <ApprovalPanel approvals={order.approvals} />
+          {/* TODO: เปิดใช้งานเมื่อข้อมูลผู้รับสั่งงาน/ผู้อนุมัติพร้อม */}
+          {/* <ApprovalPanel approvals={order.approvals} /> */}
         </aside>
       </div>
       <Dialog

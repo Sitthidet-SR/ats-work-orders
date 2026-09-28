@@ -21,7 +21,10 @@ export function Summary({
   productCode: string;
   status?: WorkOrderStatus;
 }) {
-  const step = statuses.indexOf(status);
+  // TODO: เปิด SUPERVISOR_REVIEW / WAITING_APPROVAL เมื่อข้อมูลผู้รับสั่งงาน/ผู้อนุมัติพร้อม
+  const hiddenStages: WorkOrderStatus[] = ['SUPERVISOR_REVIEW', 'WAITING_APPROVAL'];
+  const visibleStatuses = statuses.slice(0, 8).filter((s) => !hiddenStages.includes(s));
+  const step = visibleStatuses.indexOf(status);
   return (
     <Card title="สรุปใบสั่งงาน" subtitle="WORK ORDER SUMMARY">
       <div className="space-y-4">
@@ -64,12 +67,12 @@ export function Summary({
       <div className="mt-6 border-t border-slate-100 pt-5">
         <h3 className="mb-4 text-xs font-medium">ขั้นตอนการดำเนินงาน</h3>
         <div className="space-y-3">
-          {statuses.slice(0, 8).map((s, i) => (
+          {visibleStatuses.map((s, i) => (
             <div
               key={s}
-              className={`flex items-center gap-3 text-[11px] ${i === step ? 'font-semibold text-blue-600' : i < step && step < 8 ? 'text-emerald-600' : 'text-slate-400'}`}
+              className={`flex items-center gap-3 text-[11px] ${i === step ? 'font-semibold text-blue-600' : i < step && step < visibleStatuses.length ? 'text-emerald-600' : 'text-slate-400'}`}
             >
-              {i < step && step < 8 ? (
+              {i < step && step < visibleStatuses.length ? (
                 <Check size={14} />
               ) : (
                 <Circle size={12} className={i === step ? 'fill-blue-100' : ''} />
