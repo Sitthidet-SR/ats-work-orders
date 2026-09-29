@@ -1,5 +1,5 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { chromium } from 'playwright';
+import { ForbiddenException, Injectable, NotFoundException, OnModuleDestroy } from '@nestjs/common';
+import { chromium, type Browser } from 'playwright';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -21,8 +21,10 @@ const metadata = {
   createdBy: { select: { name: true } },
 } satisfies Prisma.WorkOrderPdfSelect;
 @Injectable()
-export class PdfService {
+export class PdfService implements OnModuleDestroy {
   private queue: Promise<unknown> = Promise.resolve();
+  private browser?: Promise<Browser>;
+  private assets?: Promise<[Buffer, Buffer]>;
   constructor(
     private readonly orders: WorkOrdersService,
     private readonly db: PrismaService,
@@ -32,12 +34,9 @@ export class PdfService {
     this.queue = task.catch(() => undefined);
     return task;
   }
-  private async render(order: PaperOrder) {
-    const [font, template] = await Promise.all([
-      readFile(resolve(__dirname, '../../../assets/Sarabun-Regular.ttf')),
-      readFile(resolve(__dirname, '../../../assets/work-order-template.jpg')),
-    ]);
-    const browser = await chromium.launch({
+  private getBrowser() {
+    if (this.browser) return this.browser;
+    const launched = chromium.launch({
       headless: true,
       executablePath: process.env.CHROMIUM_EXECUTABLE_PATH || undefined,
       args: [
@@ -45,8 +44,39 @@ export class PdfService {
         ...(process.env.NODE_ENV === 'production' ? ['--no-sandbox'] : []),
       ],
     });
+    this.browser = launched;
+    const clear = () => {
+      if (this.browser === launched) this.browser = undefined;
+    };
+    void launched.then((browser) => browser.on('disconnected', clear), clear);
+    return launched;
+  }
+  private getAssets() {
+    if (!this.assets) {
+      const assets = Promise.all([
+        readFile(resolve(__dirname, '../../../assets/Sarabun-Regular.ttf')),
+        readFile(resolve(__dirname, '../../../assets/work-order-template.jpg')),
+      ]);
+      this.assets = assets;
+      void assets.catch(() => {
+        if (this.assets === assets) this.assets = undefined;
+      });
+    }
+    return this.assets;
+  }
+  async onModuleDestroy() {
+    await this.queue;
+    const browser = this.browser;
+    this.browser = undefined;
+    if (browser) await (await browser).close();
+  }
+  private render(order: PaperOrder) {
+    return this.serial(() => this.renderPage(order));
+  }
+  private async renderPage(order: PaperOrder) {
+    const [[font, template], browser] = await Promise.all([this.getAssets(), this.getBrowser()]);
+    const page = await browser.newPage();
     try {
-      const page = await browser.newPage();
       await page.setContent(paperHtml(order, template, font), { waitUntil: 'load' });
       await page.evaluate(async () => {
         await document.fonts.ready;
@@ -63,7 +93,7 @@ export class PdfService {
         preferCSSPageSize: true,
       });
     } finally {
-      await browser.close();
+      await page.close();
     }
   }
   async preview(dto: CreateWorkOrderDto, actor: Actor) {
@@ -72,83 +102,79 @@ export class PdfService {
       this.db.department.findUniqueOrThrow({ where: { id: dto.departmentId } }),
       this.db.machine.findUniqueOrThrow({ where: { id: dto.machineId } }),
     ]);
-    return this.serial(() =>
-      this.render({
-        ...dto,
-        documentNo: 'รอออกเลขที่เอกสาร',
-        issuer,
-        department,
-        machine,
-        approvals: [],
-      }),
-    );
+    return this.render({
+      ...dto,
+      documentNo: 'รอออกเลขที่เอกสาร',
+      issuer,
+      department,
+      machine,
+      approvals: [],
+    });
   }
   async generate(id: string, actor: Actor, permission = 'work_order.export') {
     if (!actor.permissions.includes(permission))
       throw new ForbiddenException('คุณไม่มีสิทธิ์พิมพ์/ส่งออก');
-    return this.serial(async () => {
-      const order = await this.orders.detail(id);
-      this.orders.assertOwner(actor, order);
-      const key = {
-        workOrderId: order.id,
-        orderVersion: order.version,
-        templateVersion: PAPER_TEMPLATE_VERSION,
-      };
-      let saved = await this.db.workOrderPdf.findUnique({
-        where: { workOrderId_orderVersion_templateVersion: key },
-      });
-      if (!saved) {
-        const buffer = await this.render({
-          ...order,
-          quantity: order.quantity == null ? null : Number(order.quantity),
-          materials: order.materials.map((m) => ({
-            ...m,
-            quantity: m.quantity == null ? null : Number(m.quantity),
-          })),
-        });
-        const snapshot = JSON.parse(
-          JSON.stringify({ ...order, activities: undefined }),
-        ) as Prisma.InputJsonValue;
-        try {
-          saved = await this.db.$transaction(async (tx) => {
-            const archive = await tx.workOrderPdf.create({
-              data: {
-                ...key,
-                documentNo: order.documentNo,
-                fileName: `${order.documentNo}-v${order.version + 1}.pdf`,
-                content: new Uint8Array(buffer),
-                size: buffer.length,
-                sha256: createHash('sha256').update(buffer).digest('hex'),
-                snapshot,
-                createdById: actor.id,
-              },
-            });
-            await tx.auditLog.create({
-              data: {
-                userId: actor.id,
-                action: 'SAVE_PDF',
-                entityType: 'WorkOrder',
-                entityId: order.id,
-                newValue: { archiveId: archive.id, version: order.version, sha256: archive.sha256 },
-              },
-            });
-            return archive;
-          });
-        } catch (error) {
-          if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002')
-            throw error;
-          saved = await this.db.workOrderPdf.findUniqueOrThrow({
-            where: { workOrderId_orderVersion_templateVersion: key },
-          });
-        }
-      }
-      return {
-        id: saved.id,
-        documentNo: saved.documentNo,
-        fileName: saved.fileName,
-        buffer: Buffer.from(saved.content),
-      };
+    const order = await this.orders.detail(id);
+    this.orders.assertOwner(actor, order);
+    const key = {
+      workOrderId: order.id,
+      orderVersion: order.version,
+      templateVersion: PAPER_TEMPLATE_VERSION,
+    };
+    let saved = await this.db.workOrderPdf.findUnique({
+      where: { workOrderId_orderVersion_templateVersion: key },
     });
+    if (!saved) {
+      const buffer = await this.render({
+        ...order,
+        quantity: order.quantity == null ? null : Number(order.quantity),
+        materials: order.materials.map((m) => ({
+          ...m,
+          quantity: m.quantity == null ? null : Number(m.quantity),
+        })),
+      });
+      const snapshot = JSON.parse(
+        JSON.stringify({ ...order, activities: undefined }),
+      ) as Prisma.InputJsonValue;
+      try {
+        saved = await this.db.$transaction(async (tx) => {
+          const archive = await tx.workOrderPdf.create({
+            data: {
+              ...key,
+              documentNo: order.documentNo,
+              fileName: `${order.documentNo}-v${order.version + 1}.pdf`,
+              content: new Uint8Array(buffer),
+              size: buffer.length,
+              sha256: createHash('sha256').update(buffer).digest('hex'),
+              snapshot,
+              createdById: actor.id,
+            },
+          });
+          await tx.auditLog.create({
+            data: {
+              userId: actor.id,
+              action: 'SAVE_PDF',
+              entityType: 'WorkOrder',
+              entityId: order.id,
+              newValue: { archiveId: archive.id, version: order.version, sha256: archive.sha256 },
+            },
+          });
+          return archive;
+        });
+      } catch (error) {
+        if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002')
+          throw error;
+        saved = await this.db.workOrderPdf.findUniqueOrThrow({
+          where: { workOrderId_orderVersion_templateVersion: key },
+        });
+      }
+    }
+    return {
+      id: saved.id,
+      documentNo: saved.documentNo,
+      fileName: saved.fileName,
+      buffer: Buffer.from(saved.content),
+    };
   }
   async history(id: string) {
     const order = await this.orders.detail(id);

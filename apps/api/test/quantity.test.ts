@@ -72,7 +72,7 @@ test('text quantities survive create, read, updates and switches to numeric quan
     service.create({ ...input, issuerDisplayName: '   ' }, actor, {}),
     /กรุณากรอกผู้สั่งงาน/,
   );
-  assert.equal(sequenceDate, undefined, 'A missing issuer must not consume a document number');
+  assert.equal(Boolean(sequenceDate), false, 'A missing issuer must not consume a document number');
   const created = await service.create(input, actor, {});
   assert.equal(created.issuerDisplayName, 'ผู้สั่งงานทดสอบ');
   assert.equal(created.unit, '', 'The unit can remain blank');

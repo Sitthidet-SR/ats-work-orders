@@ -35,7 +35,7 @@ import { Button } from '@/components/ui/button';
 import { Card, Loading, ErrorState, Spinner } from '@/components/ui/common';
 import { Dialog } from '@/components/ui/dialog';
 import { Summary } from './summary';
-import { api, openArchivedPdf, pdfBlob } from '@/lib/api';
+import { api, downloadWorkOrderPdf, pdfBlob } from '@/lib/api';
 import { today, thaiDate } from '@/lib/utils';
 import { toast } from 'sonner';
 const required = z.string().trim().min(1, 'กรุณากรอกข้อมูล');
@@ -276,15 +276,18 @@ function OrderForm({
           method: 'POST',
           body: JSON.stringify({ version: order.version }),
         });
-      const archived = user?.permissions.includes('work_order.print')
-        ? await api<{ id: string; fileName: string }>(`/work-orders/${order.id}/pdf-archives`, {
-            method: 'POST',
-          })
-        : null;
-      await queryClient.invalidateQueries();
+      if (user?.permissions.includes('work_order.print')) {
+        if (mode === 'draft') await downloadWorkOrderPdf(order.id, order.documentNo);
+        else await api(`/work-orders/${order.id}/pdf-archives`, { method: 'POST' });
+      }
       toast.success(mode === 'submit' ? 'ส่งอนุมัติเรียบร้อย' : 'บันทึกใบสั่งงานเรียบร้อย');
-      if (mode === 'draft' && archived)
-        await openArchivedPdf(order.id, archived.id, archived.fileName, true);
+      void queryClient.invalidateQueries({ queryKey: ['orders'], refetchType: 'none' });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard'], refetchType: 'none' });
+      void queryClient.invalidateQueries({ queryKey: ['order', order.id], refetchType: 'none' });
+      void queryClient.invalidateQueries({
+        queryKey: ['pdf-history', order.id],
+        refetchType: 'none',
+      });
       router.push(`/work-orders/${order.id}`);
     } catch (e) {
       toast.error((e as Error).message);

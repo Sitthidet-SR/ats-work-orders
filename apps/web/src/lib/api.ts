@@ -104,6 +104,16 @@ export async function openArchivedPdf(
     throw error;
   }
 }
+export async function downloadWorkOrderPdf(id: string, documentNo: string) {
+  // The print endpoint saves the immutable archive and returns its PDF in the same request.
+  const blob = await pdfBlob(`/work-orders/${id}/print`);
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${documentNo}.pdf`;
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
 export async function openPdf(id: string, print = false) {
   // Open synchronously to keep the browser popup permission from the click event.
   const target = print ? window.open('about:blank', '_blank') : null;

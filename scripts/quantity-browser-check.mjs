@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 process.loadEnvFile(new URL('../.env', import.meta.url));
 const origin = process.env.QUANTITY_CHECK_URL || 'http://127.0.0.1:3100';
+const downloadPdf = process.env.QUANTITY_CHECK_DOWNLOAD === '1';
 const department = { id: '11111111-1111-4111-8111-111111111111', name: 'ฝ่ายผลิต', active: true };
 const machine = { id: '22222222-2222-4222-8222-222222222222', name: 'CNC Milling', active: true };
 const user = {
@@ -13,17 +14,26 @@ const user = {
   department,
   roles: ['ADMIN'],
   forcePasswordChange: false,
-  permissions: ['work_order.create', 'work_order.read', 'work_order.update'],
+  permissions: [
+    'work_order.create',
+    'work_order.read',
+    'work_order.update',
+    ...(downloadPdf ? ['work_order.print'] : []),
+  ],
 };
 const id = '44444444-4444-4444-8444-444444444444';
 let saved;
 const payloads = [];
+const downloads = [];
+let pdfRequests = 0;
+let archivePosts = 0;
 const browser = await chromium.launch({
   headless: true,
   executablePath: process.env.CHROMIUM_EXECUTABLE_PATH,
 });
 try {
   const page = await browser.newPage();
+  page.on('download', (download) => downloads.push(download.suggestedFilename()));
   await page.route('**/api/**', async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname.replace(/^\/api/, '');
@@ -39,8 +49,17 @@ try {
     else if (path === '/machines') data = [machine];
     else if (path === '/departments') data = [department];
     else if (path === '/users') data = [user];
-    else if (path.endsWith('/pdf-archives')) data = [];
-    else if (
+    else if (path.endsWith('/print')) {
+      pdfRequests++;
+      assert.equal(request.method(), 'GET');
+      return route.fulfill({
+        headers: { ...headers, 'Content-Type': 'application/pdf' },
+        body: '%PDF-1.4 browser check',
+      });
+    } else if (path.endsWith('/pdf-archives')) {
+      if (request.method() === 'POST') archivePosts++;
+      data = [];
+    } else if (
       (path === '/work-orders' && request.method() === 'POST') ||
       request.method() === 'PATCH'
     ) {
@@ -80,7 +99,13 @@ try {
   const textMode = page.getByRole('checkbox', { name: 'ใช้ข้อความแทนจำนวน' });
   await textMode.check();
   await page.getByLabel('ข้อความแทนจำนวน', { exact: true }).fill('ตามเอกสารแนบท้าย 25 ชิ้น');
-  const save = () => page.getByRole('button', { name: 'บันทึกร่าง', exact: true }).click();
+  const save = () =>
+    page
+      .getByRole('button', {
+        name: downloadPdf ? 'บันทึกและดาวน์โหลด PDF' : 'บันทึกร่าง',
+        exact: true,
+      })
+      .click();
   await issuer.fill('   ');
   await save();
   await page.getByText('กรุณากรอกผู้สั่งงาน', { exact: true }).waitFor();
@@ -132,6 +157,12 @@ try {
   await save();
   await page.waitForURL(`${origin}/work-orders/${id}`);
   assert.equal(saved.quantity, null);
+  if (downloadPdf) {
+    assert.equal(pdfRequests, payloads.length, 'Each save must need only one PDF request');
+    assert.equal(archivePosts, 0, 'Downloading must not require a separate archive POST');
+    assert.equal(downloads.length, payloads.length);
+    assert.ok(downloads.every((name) => name === 'PN2609024.pdf'));
+  }
   console.log(
     'Quantity browser regression passed: create, reload, resave, text/number switches. API requests were mocked; no database writes.',
   );
