@@ -54,7 +54,7 @@ erDiagram
   }
 ```
 
-All dates are Gregorian in storage. Bangkok business dates determine monthly sequences and dashboard due dates. Thai display may use Buddhist years. Database checks enforce positive production quantity and nonnegative material quantities. Audit records are append-only with database triggers.
+All dates are Gregorian in storage. The order date determines the year/month document-number prefix; monthly sequences use atomic UPSERT and existing document numbers remain stable on edits. Bangkok business dates determine dashboard due dates. Thai display may use Buddhist years. Database checks enforce positive production quantity and nonnegative material quantities. Audit records are append-only with database triggers.
 
 ## Folder structure
 

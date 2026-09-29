@@ -111,7 +111,7 @@ export class WorkOrdersService {
   async create(dto: CreateWorkOrderDto, actor: Actor, context: AuditContext) {
     await this.validateInput(dto, actor);
     return this.db.$transaction(async (tx) => {
-      const documentNo = await this.sequence.next(tx);
+      const documentNo = await this.sequence.next(tx, dateOnly(dto.orderDate));
       const order = await tx.workOrder.create({
         data: {
           ...this.fields(dto),

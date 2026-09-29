@@ -155,7 +155,7 @@ DRAFT → SUBMITTED → SUPERVISOR_REVIEW → WAITING_APPROVAL
 
 `GET /api/work-orders/:id/pdf` สำหรับ export; `/print` สำหรับ print ตามสิทธิ์ ผู้สั่งงานพิมพ์เฉพาะใบของตัวเอง QR ใช้ UUID publicReference แต่ยังต้อง Login
 
-วันที่เก็บเป็น Gregorian `YYYY-MM-DD`; เลขเอกสารใช้เดือนปัจจุบันของ Bangkok และ atomic UPSERT ใน transaction รูปแบบเริ่มต้น `PN` + `YYMM` + ลำดับอย่างน้อย 3 หลัก ลำดับที่เกิน 999 ไม่ถูกตัดทิ้ง UUID คือ primary key
+วันที่เก็บเป็น Gregorian `YYYY-MM-DD`; เลขเอกสารใช้ปี–เดือนจากวันที่สั่งการและ atomic UPSERT ใน transaction รูปแบบ `PN` + `YYMM` + ลำดับอย่างน้อย 3 หลัก เช่น `PN2609023`, `PN2609024` เลขลำดับแยกตามเดือนและเริ่มที่ `001` เมื่อขึ้นเดือนใหม่ การแก้ไขใบงานเดิมไม่เปลี่ยนเลขเอกสาร ลำดับที่เกิน 999 ไม่ถูกตัดทิ้ง UUID คือ primary key
 
 Assignments กับผู้ดำเนินการอนุมัติจริงเก็บแยกกัน (`userId` / `decidedById`) เพื่อให้ Admin ดำเนินการแทนได้และลายเซ็น PDF ไม่อ้างชื่อผู้ที่ไม่ได้กดอนุมัติ
 

@@ -2,7 +2,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useForm, useFieldArray, type FieldErrors } from 'react-hook-form';
+import { Controller, useForm, useFieldArray, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
@@ -126,7 +126,7 @@ function fromOrder(order: WorkOrder): WorkOrderInput {
     followAttachment: order.followAttachment,
     productCode: order.productCode,
     productName: order.productName,
-    quantity: order.quantity,
+    quantity: order.quantityText?.trim() ? null : order.quantity,
     unit: order.unit,
     machineId: order.machineId,
     dueDate: order.dueDate.slice(0, 10),
@@ -253,6 +253,7 @@ function OrderForm({
     try {
       const payload = {
         ...values,
+        quantityText: values.quantity === null ? values.quantityText?.trim() : '',
         materials: values.materials.map((m, i) => ({ ...m, sortOrder: i })),
       };
       let order = await api<WorkOrder>(editing ? `/work-orders/${initial!.id}` : '/work-orders', {
@@ -394,6 +395,12 @@ function OrderForm({
                     disabled
                     value={editing ? initial!.documentNo : 'สร้างอัตโนมัติเมื่อบันทึก'}
                   />
+                  {!editing && (
+                    <p className="mt-1 text-[11px] text-slate-400">
+                      PN{data.orderDate.slice(2, 4)}
+                      {data.orderDate.slice(5, 7)} + เลขลำดับ 3 หลัก
+                    </p>
+                  )}
                 </Field>
                 <Field label="วันที่สั่งการ" required error={errors.orderDate?.message}>
                   <input type="date" aria-label="วันที่สั่งการ" {...register('orderDate')} />
@@ -548,16 +555,28 @@ function OrderForm({
                   <Field label="จำนวนที่สั่งผลิต" required error={errors.quantity?.message}>
                     {data.quantity === null ? (
                       <input
+                        key="quantity-text"
                         aria-label="ข้อความแทนจำนวน"
                         placeholder="ตามเอกสารแนบท้าย"
                         {...register('quantityText')}
                       />
                     ) : (
-                      <input
-                        aria-label="จำนวนที่สั่งผลิต"
-                        type="number"
-                        step="0.0001"
-                        {...register('quantity', { valueAsNumber: true })}
+                      <Controller
+                        name="quantity"
+                        control={form.control}
+                        render={({ field }) => (
+                          <input
+                            key="quantity-number"
+                            aria-label="จำนวนที่สั่งผลิต"
+                            type="number"
+                            step="0.0001"
+                            name={field.name}
+                            ref={field.ref}
+                            onBlur={field.onBlur}
+                            value={Number.isFinite(field.value) ? field.value! : ''}
+                            onChange={(e) => field.onChange(e.target.valueAsNumber)}
+                          />
+                        )}
                       />
                     )}
                     <label className="mt-2 flex items-center gap-2 text-xs">
@@ -565,8 +584,14 @@ function OrderForm({
                         type="checkbox"
                         checked={data.quantity === null}
                         onChange={(e) => {
-                          form.setValue('quantity', e.target.checked ? null : 1);
-                          form.setValue('quantityText', e.target.checked ? 'ตามเอกสารแนบท้าย' : '');
+                          form.setValue('quantity', e.target.checked ? null : 1, {
+                            shouldDirty: true,
+                          });
+                          form.setValue(
+                            'quantityText',
+                            e.target.checked ? 'ตามเอกสารแนบท้าย' : '',
+                            { shouldDirty: true },
+                          );
                         }}
                       />
                       ใช้ข้อความแทนจำนวน

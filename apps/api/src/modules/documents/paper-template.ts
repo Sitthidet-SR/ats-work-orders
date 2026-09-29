@@ -1,4 +1,4 @@
-export const PAPER_TEMPLATE_VERSION = 'reference-2609-067-v1';
+export const PAPER_TEMPLATE_VERSION = 'reference-2609-067-v2';
 export interface PaperOrder {
   documentNo: string;
   orderDate: Date | string;
@@ -125,8 +125,8 @@ export function paperHtml(order: PaperOrder, template: Buffer, font: Buffer) {
     const approval = order.approvals.find((a) => a.stage === stage && a.status === 'APPROVED');
     if (approval?.decidedBy) fields.push(field(174, y, 298, 30, approval.decidedBy.name, false));
   }
-  const mark = (x: number, y: number, checked: boolean) =>
-    `<span class="mark" style="left:${x}px;top:${y}px">${checked ? '/' : ''}</span>`;
+  const mark = (checked: boolean) =>
+    `<span class="mark" aria-label="${checked ? 'เลือก' : 'ไม่เลือก'}"><span>(</span><span class="mark-slot">${checked ? '<span class="check"></span>' : ''}</span><span>)</span></span>`;
   return `<!doctype html><html lang="th"><head><meta charset="utf-8"><style>
     @font-face{font-family:PaperThai;src:url(data:font/ttf;base64,${font.toString('base64')})}
     @page{size:Letter;margin:0}*{box-sizing:border-box}body{margin:0;color:#000;font-family:PaperThai,"Times New Roman",serif}
@@ -135,14 +135,21 @@ export function paperHtml(order: PaperOrder, template: Buffer, font: Buffer) {
     .field{position:absolute;background:white;display:flex;align-items:center;padding:0 7px;white-space:nowrap;font-size:23px;line-height:1.25;font-weight:bold}
     .fit{max-width:100%;display:block}.underlined{text-decoration:underline;text-underline-offset:3px}
     .writing{position:absolute;background:white;white-space:pre-wrap;overflow-wrap:anywhere;font-size:23px;line-height:47px;background-image:repeating-linear-gradient(to bottom,white 0,white 44px,#555 45px,white 46px,white 47px)}
-    .mark{position:absolute;background:white;width:15px;height:29px;font-size:24px;text-align:center;line-height:29px}
+    .reason-options{position:absolute;left:113px;top:1218px;width:1057px;height:40px;background:white;display:flex;align-items:center;gap:26px;font-size:23px;line-height:29px}
+    .reason-option{display:flex;align-items:center;gap:6px;white-space:nowrap}
+    .mark{display:inline-flex;align-items:center;justify-content:space-between;flex:none;width:32px;height:29px;background:white;font-size:22px;line-height:29px}
+    .mark-slot{display:flex;align-items:center;justify-content:center;width:18px;height:29px}
+    .check{display:block;width:9px;height:17px;border-right:2px solid #000;border-bottom:2px solid #000;transform:translateY(-2px) rotate(45deg)}
+    .other-mark{position:absolute;left:113px;top:1265px;width:36px;height:33px;background:white;display:flex;align-items:center}
     .appendix{padding:48px;font-size:15px;line-height:1.6;break-before:page}h1{font-size:20px}h2{font-size:16px}p{white-space:pre-wrap;overflow-wrap:anywhere}table{width:100%;border-collapse:collapse}th,td{border:1px solid #555;padding:7px;text-align:left;overflow-wrap:anywhere}tr{break-inside:avoid}thead{display:table-header-group}
   </style></head><body><div class="page"><div class="sheet">${fields.join('')}
     <div class="writing" style="left:113px;top:1068px;width:1057px;height:99px">${escapeHtml(instructions)}</div>
-    ${mark(112, 1223, order.reasonType === 'REWORK')}${mark(334, 1223, order.reasonType === 'SAMPLE')}${mark(609, 1223, order.reasonType === 'ERP_FAILURE')}${mark(124, 1269, other)}
-    <span style="position:absolute;left:127px;top:1223px;font-size:22px;line-height:29px;">)</span>
-    <span style="position:absolute;left:349px;top:1223px;font-size:22px;line-height:29px;">)</span>
-    <span style="position:absolute;left:624px;top:1223px;font-size:22px;line-height:29px;">)</span>
+    <div class="reason-options">
+      <span class="reason-option">${mark(order.reasonType === 'REWORK')}<span>งานแก้ไข (Rework)</span></span>
+      <span class="reason-option">${mark(order.reasonType === 'SAMPLE')}<span>ผลิตสินค้าตัวอย่าง (Sample)</span></span>
+      <span class="reason-option">${mark(order.reasonType === 'ERP_FAILURE')}<span>ระบบ ERP ขัดข้อง</span></span>
+    </div>
+    <span class="other-mark">${mark(other)}</span>
     <div class="writing" style="left:267px;top:1255px;width:900px;height:48px;text-decoration:underline">${escapeHtml(other ? reason : '')}</div>
     <div class="writing" style="left:113px;top:1304px;width:1057px;height:39px"></div>
   </div></div>${extra.length ? `<section class="appendix"><h1>เอกสารแนบท้าย ${escapeHtml(order.documentNo)}</h1>${extra.join('')}</section>` : ''}</body></html>`;
