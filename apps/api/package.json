@@ -11,7 +11,7 @@
     "db:migrate": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "storage:init": "tsx scripts/storage-init.ts",
-    "test": "tsx --test test/workflow.test.ts test/document-sequence.test.ts test/quantity.test.ts",
+    "test": "tsx --test test/workflow.test.ts test/document-sequence.test.ts test/quantity.test.ts test/password-policy.test.ts",
     "test:integration": "tsx --test test/integration.test.ts"
   },
   "dependencies": {

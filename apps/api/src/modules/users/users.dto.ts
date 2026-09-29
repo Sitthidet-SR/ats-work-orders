@@ -18,7 +18,11 @@ export class CreateUserDto {
   @ApiProperty() @IsString() @IsNotEmpty() @MaxLength(100) name!: string;
   @ApiProperty() @IsString() @IsNotEmpty() @MaxLength(100) position!: string;
   @ApiProperty() @IsUUID() departmentId!: string;
-  @ApiProperty({ writeOnly: true }) @IsString() @MinLength(12) @MaxLength(72) password!: string;
+  @ApiProperty({ writeOnly: true, minLength: 4, maxLength: 6 })
+  @IsString()
+  @MinLength(4, { message: 'รหัสผ่านต้องมีความยาว 4–6 ตัวอักษร' })
+  @MaxLength(6, { message: 'รหัสผ่านต้องมีความยาว 4–6 ตัวอักษร' })
+  password!: string;
   @ApiProperty({ type: [String] })
   @IsArray()
   @ArrayMinSize(1)

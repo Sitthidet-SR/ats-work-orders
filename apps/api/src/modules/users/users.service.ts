@@ -29,8 +29,8 @@ export class UsersService {
     return users.map((user) => ({ ...user, roles: user.roles.map((r) => r.role.name) }));
   }
   async create(dto: CreateUserDto, actor: Actor, context: AuditContext) {
-    if (Buffer.byteLength(dto.password, 'utf8') > 72)
-      throw new BadRequestException('รหัสผ่านต้องไม่เกิน 72 bytes');
+    if (dto.password.length < 4 || dto.password.length > 6)
+      throw new BadRequestException('รหัสผ่านต้องมีความยาว 4–6 ตัวอักษร');
     const passwordHash = await hash(dto.password, 12);
     const roles = await this.db.role.findMany({ where: { name: { in: dto.roles } } });
     if (roles.length !== dto.roles.length)

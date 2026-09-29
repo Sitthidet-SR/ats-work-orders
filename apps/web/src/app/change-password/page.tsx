@@ -14,8 +14,14 @@ import { toast } from 'sonner';
 
 const schema = z
   .object({
-    newPassword: z.string().min(12, 'รหัสผ่านต้องมีความยาวอย่างน้อย 12 ตัวอักษร'),
-    confirmPassword: z.string().min(12, 'กรุณายืนยันรหัสผ่าน'),
+    newPassword: z
+      .string()
+      .min(4, 'รหัสผ่านต้องมีความยาว 4–6 ตัวอักษร')
+      .max(6, 'รหัสผ่านต้องมีความยาว 4–6 ตัวอักษร'),
+    confirmPassword: z
+      .string()
+      .min(1, 'กรุณายืนยันรหัสผ่าน')
+      .max(6, 'รหัสผ่านต้องมีความยาว 4–6 ตัวอักษร'),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {
     message: 'รหัสผ่านไม่ตรงกัน',
@@ -119,13 +125,14 @@ export default function ChangePassword() {
           <form onSubmit={form.handleSubmit(submit)} className="space-y-5">
             <div>
               <label className="field" htmlFor="newPassword">
-                รหัสผ่านใหม่ (อย่างน้อย 12 ตัวอักษร)
+                รหัสผ่านใหม่ (4–6 ตัวอักษร)
               </label>
               <div className="relative">
                 <input
                   id="newPassword"
                   type={visible ? 'text' : 'password'}
                   placeholder="รหัสผ่านใหม่"
+                  autoComplete="new-password"
                   {...form.register('newPassword')}
                 />
                 <button
@@ -150,6 +157,7 @@ export default function ChangePassword() {
                   id="confirmPassword"
                   type={visible ? 'text' : 'password'}
                   placeholder="ยืนยันรหัสผ่านใหม่"
+                  autoComplete="new-password"
                   {...form.register('confirmPassword')}
                 />
               </div>

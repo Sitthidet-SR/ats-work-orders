@@ -65,7 +65,7 @@ test('PostgreSQL + API lifecycle, security, concurrency, audit, storage and Thai
       name: 'Unassigned Supervisor',
       position: 'หัวหน้าทดสอบ',
       departmentId: supervisor.user.departmentId,
-      password: required('ADMIN_INITIAL_PASSWORD'),
+      password: '123456',
       roles: ['SUPERVISOR'],
     };
     assert.equal((await request('/users', 'POST', newUserInput, viewer)).res.status, 403);

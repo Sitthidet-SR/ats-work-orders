@@ -17,7 +17,10 @@ const schema = z.object({
   name: z.string().min(1, 'กรุณากรอกชื่อ'),
   position: z.string().min(1, 'กรุณากรอกตำแหน่ง'),
   departmentId: z.uuid('กรุณาเลือกแผนก'),
-  password: z.string().min(12, 'รหัสผ่านอย่างน้อย 12 ตัว').max(72),
+  password: z
+    .string()
+    .min(4, 'รหัสผ่านต้องมีความยาว 4–6 ตัวอักษร')
+    .max(6, 'รหัสผ่านต้องมีความยาว 4–6 ตัวอักษร'),
   role: z.enum(['ADMIN', 'ISSUER', 'SUPERVISOR', 'APPROVER', 'VIEWER']),
 });
 export function UserSetup() {
@@ -82,6 +85,7 @@ export function UserSetup() {
                 aria-label={label}
                 type={key === 'password' ? 'password' : 'text'}
                 autoComplete={key === 'password' ? 'new-password' : 'off'}
+                placeholder={key === 'password' ? 'รหัสผ่าน 4–6 ตัวอักษร' : undefined}
                 {...form.register(key as keyof z.infer<typeof schema>)}
               />
               <p className="mt-1 text-[11px] text-red-600">

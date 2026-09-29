@@ -7,5 +7,9 @@ export class LoginDto {
 }
 
 export class ChangePasswordDto {
-  @ApiProperty() @IsString() @MinLength(12) @MaxLength(72) newPassword!: string;
+  @ApiProperty({ minLength: 4, maxLength: 6 })
+  @IsString()
+  @MinLength(4, { message: 'รหัสผ่านต้องมีความยาว 4–6 ตัวอักษร' })
+  @MaxLength(6, { message: 'รหัสผ่านต้องมีความยาว 4–6 ตัวอักษร' })
+  newPassword!: string;
 }

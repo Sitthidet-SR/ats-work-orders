@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { compare, hash } from 'bcrypt';
 import { createHash, randomUUID } from 'node:crypto';
@@ -121,8 +121,8 @@ export class AuthService {
   }
 
   async changePassword(userId: string, newPassword: string) {
-    if (newPassword.length < 12)
-      throw new UnauthorizedException('รหัสผ่านต้องมีความยาวอย่างน้อย 12 ตัวอักษร');
+    if (newPassword.length < 4 || newPassword.length > 6)
+      throw new BadRequestException('รหัสผ่านต้องมีความยาว 4–6 ตัวอักษร');
     const passwordHash = await hash(newPassword, 12);
     await this.db.user.update({
       where: { id: userId },
