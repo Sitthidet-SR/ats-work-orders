@@ -90,6 +90,7 @@ test('PostgreSQL + API lifecycle, security, concurrency, audit, storage and Thai
     }[];
     const today = new Date().toISOString().slice(0, 10);
     const payload = {
+      issuerDisplayName: 'ผู้สั่งงานทดสอบ',
       orderDate: today,
       departmentId: issuer.user.departmentId,
       description: 'Integration test — ภาษาไทย งานผลิต',

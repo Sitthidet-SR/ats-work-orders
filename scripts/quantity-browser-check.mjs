@@ -71,6 +71,9 @@ try {
     await route.fulfill({ headers, json: { success: true, data } });
   });
   await page.goto(`${origin}/work-orders/new`);
+  const issuer = page.getByLabel('ผู้สั่งงานในเอกสาร', { exact: true });
+  assert.equal(await issuer.inputValue(), '');
+  assert.equal(await page.getByLabel('หน่วยนับ', { exact: true }).inputValue(), '');
   await page.getByLabel('รายละเอียดงานผลิต', { exact: true }).fill('ตรวจสอบจำนวนแบบข้อความ');
   await page.getByLabel('รหัสชิ้นงาน', { exact: true }).fill('QUANTITY-REGRESSION');
   await page.getByLabel('เครื่องจักร', { exact: true }).selectOption(machine.id);
@@ -78,8 +81,15 @@ try {
   await textMode.check();
   await page.getByLabel('ข้อความแทนจำนวน', { exact: true }).fill('ตามเอกสารแนบท้าย 25 ชิ้น');
   const save = () => page.getByRole('button', { name: 'บันทึกร่าง', exact: true }).click();
+  await issuer.fill('   ');
+  await save();
+  await page.getByText('กรุณากรอกผู้สั่งงาน', { exact: true }).waitFor();
+  assert.equal(payloads.length, 0, 'Missing issuer must prevent saving');
+  await issuer.fill('ผู้สั่งงานทดสอบ');
   await save();
   await page.waitForURL(`${origin}/work-orders/${id}`);
+  assert.equal(saved.issuerDisplayName, 'ผู้สั่งงานทดสอบ');
+  assert.equal(saved.unit, '');
   assert.equal(payloads.at(-1).quantity, null);
   assert.equal(saved.quantityText, 'ตามเอกสารแนบท้าย 25 ชิ้น');
   await page.goto(`${origin}/work-orders/${id}/edit`);

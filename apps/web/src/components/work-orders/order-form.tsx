@@ -41,7 +41,7 @@ import { toast } from 'sonner';
 const required = z.string().trim().min(1, 'กรุณากรอกข้อมูล');
 const schema = z
   .object({
-    issuerDisplayName: z.string().max(150).optional(),
+    issuerDisplayName: z.string().trim().min(1, 'กรุณากรอกผู้สั่งงาน').max(150),
     quantityText: z.string().max(100).optional(),
     orderDate: required.regex(/^20\d{2}-\d{2}-\d{2}$/, 'กรุณาใช้ปี ค.ศ.'),
     departmentId: z.uuid('กรุณาเลือกแผนก'),
@@ -117,7 +117,7 @@ function Field({
 }
 function fromOrder(order: WorkOrder): WorkOrderInput {
   return {
-    issuerDisplayName: order.issuerDisplayName || order.issuer.name,
+    issuerDisplayName: order.issuerDisplayName || '',
     quantityText: order.quantityText || '',
     orderDate: order.orderDate.slice(0, 10),
     departmentId: order.departmentId,
@@ -207,11 +207,16 @@ function OrderForm({
       ? {
           ...fromOrder(initial),
           ...(!editing
-            ? { orderDate: today(), departmentId: user!.departmentId, followAttachment: false }
+            ? {
+                orderDate: today(),
+                departmentId: user!.departmentId,
+                followAttachment: false,
+                issuerDisplayName: '',
+              }
             : {}),
         }
       : {
-          issuerDisplayName: user?.name || '',
+          issuerDisplayName: '',
           quantityText: '',
           orderDate: today(),
           departmentId: user!.departmentId,
@@ -220,7 +225,7 @@ function OrderForm({
           productCode: '',
           productName: '',
           quantity: 1,
-          unit: 'ชิ้น',
+          unit: '',
           machineId: '',
           dueDate: today(),
           dueTime: '',
@@ -385,7 +390,7 @@ function OrderForm({
                 <Field label="วันที่สั่งการ" required error={errors.orderDate?.message}>
                   <input type="date" aria-label="วันที่สั่งการ" {...register('orderDate')} />
                 </Field>
-                <Field label="ผู้สั่งงาน">
+                <Field label="ผู้สั่งงาน" required error={errors.issuerDisplayName?.message}>
                   <input
                     aria-label="ผู้สั่งงานในเอกสาร"
                     maxLength={150}
@@ -754,7 +759,7 @@ function OrderForm({
             />
             <Card title="การอนุมัติ / ผู้เกี่ยวข้อง" subtitle="ASSIGN APPROVAL">
               <div className="space-y-5">
-                <Field label="ผู้สั่งงาน">
+                <Field label="ผู้บันทึกใบงาน">
                   <input value={editing ? initial!.issuer.name : user?.name} disabled />
                 </Field>
                 {(['supervisorId', 'approverId'] as const).map((key, i) => (

@@ -60,6 +60,7 @@ export class WorkOrdersService {
       throw new ForbiddenException('เฉพาะผู้สั่งงานเจ้าของเอกสาร');
   }
   private async validateInput(dto: CreateWorkOrderDto, actor: Actor) {
+    if (!dto.issuerDisplayName?.trim()) throw new BadRequestException('กรุณากรอกผู้สั่งงาน');
     if (dto.quantity == null && !dto.quantityText?.trim())
       throw new BadRequestException('กรุณาระบุจำนวนหรือข้อความแทนจำนวน');
     if (dto.dueDate < dto.orderDate)

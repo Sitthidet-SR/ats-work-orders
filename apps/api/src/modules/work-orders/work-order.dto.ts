@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
@@ -33,11 +33,12 @@ export class MaterialDto {
   @ApiProperty() @IsInt() @Min(0) sortOrder!: number;
 }
 export class CreateWorkOrderDto {
-  @ApiProperty({ required: false })
-  @IsOptional()
+  @ApiProperty()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
+  @IsNotEmpty({ message: 'กรุณากรอกผู้สั่งงาน' })
   @MaxLength(150)
-  issuerDisplayName?: string;
+  issuerDisplayName!: string;
   @ApiProperty({ required: false }) @IsOptional() @IsString() @MaxLength(100) quantityText?: string;
   @ApiProperty()
   @IsDateString({ strict: true })

@@ -87,7 +87,7 @@ export interface AuditEvent {
   newValue: unknown;
 }
 export interface WorkOrderInput {
-  issuerDisplayName?: string;
+  issuerDisplayName: string;
   quantityText?: string;
   orderDate: string;
   departmentId: string;

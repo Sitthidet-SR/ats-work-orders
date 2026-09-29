@@ -54,6 +54,8 @@ test('text quantities survive create, read, updates and switches to numeric quan
   } as unknown as AuditService);
   const actor = { id: 'issuer', roles: ['ADMIN'], departmentId: 'department' } as Actor;
   const input = {
+    issuerDisplayName: ' ผู้สั่งงานทดสอบ ',
+    unit: '',
     orderDate: '2026-09-28',
     dueDate: '2026-09-30',
     machineId: 'machine',
@@ -66,7 +68,14 @@ test('text quantities survive create, read, updates and switches to numeric quan
     supervisorId: '',
     approverId: '',
   } as unknown as CreateWorkOrderDto;
+  await assert.rejects(
+    service.create({ ...input, issuerDisplayName: '   ' }, actor, {}),
+    /กรุณากรอกผู้สั่งงาน/,
+  );
+  assert.equal(sequenceDate, undefined, 'A missing issuer must not consume a document number');
   const created = await service.create(input, actor, {});
+  assert.equal(created.issuerDisplayName, 'ผู้สั่งงานทดสอบ');
+  assert.equal(created.unit, '', 'The unit can remain blank');
   assert.equal(created.quantity, null);
   assert.equal(created.quantityText, 'ตามเอกสารแนบท้าย');
   assert.equal(sequenceDate?.toISOString(), '2026-09-28T00:00:00.000Z');
