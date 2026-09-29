@@ -13,7 +13,7 @@ page.on('pageerror', (error) => errors.push(error.message));
 try {
   await page.goto('http://localhost:3000/login');
   await page.screenshot({ path: '.local/screenshots/login.png', fullPage: true });
-  await page.getByLabel('อีเมล / ชื่อผู้ใช้').fill('admin');
+  await page.getByLabel('รหัสพนักงาน', { exact: true }).fill('admin');
   await page.getByLabel('รหัสผ่าน', { exact: true }).fill(process.env.ADMIN_INITIAL_PASSWORD);
   await page.getByRole('button', { name: 'เข้าสู่ระบบ', exact: true }).click();
   await page.waitForURL('**/dashboard');

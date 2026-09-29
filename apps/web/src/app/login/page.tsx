@@ -10,7 +10,7 @@ import { Brand } from '@/components/erp-shell';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/common';
 const schema = z.object({
-  identifier: z.string().min(1, 'กรุณากรอกชื่อผู้ใช้หรืออีเมล'),
+  identifier: z.string().trim().min(1, 'กรุณากรอกรหัสพนักงาน'),
   password: z.string().min(1, 'กรุณากรอกรหัสผ่าน'),
   remember: z.boolean(),
 });
@@ -84,12 +84,14 @@ export default function Login() {
           <form onSubmit={form.handleSubmit(submit)} className="space-y-5">
             <div>
               <label className="field" htmlFor="identifier">
-                อีเมล / ชื่อผู้ใช้
+                รหัสพนักงาน
               </label>
               <input
                 id="identifier"
                 autoComplete="username"
-                placeholder="name@company.com"
+                autoCapitalize="characters"
+                spellCheck={false}
+                placeholder="เช่น 1ATS001"
                 {...form.register('identifier')}
               />
               <p className="mt-1 text-xs text-red-600">
