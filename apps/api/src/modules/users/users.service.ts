@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { hash } from 'bcrypt';
 import { PrismaService } from '../../common/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -27,6 +32,35 @@ export class UsersService {
       orderBy: { name: 'asc' },
     });
     return users.map((user) => ({ ...user, roles: user.roles.map((r) => r.role.name) }));
+  }
+  async resetPassword(id: string, actor: Actor, context: AuditContext) {
+    if (!actor.roles.includes('ADMIN'))
+      throw new ForbiddenException('เฉพาะแอดมินสามารถรีเซ็ตรหัสผ่านได้');
+    // Temporary reset passwords are separate from the 4–6 character policy for new passwords.
+    const passwordHash = await hash('Password@1', 12);
+    return this.db.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id },
+        select: { id: true, username: true, forcePasswordChange: true },
+      });
+      if (!user) throw new NotFoundException('ไม่พบบัญชีผู้ใช้');
+      await tx.user.update({ where: { id }, data: { passwordHash, forcePasswordChange: true } });
+      const revoked = await tx.refreshToken.updateMany({
+        where: { userId: id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      await this.audit.write(
+        tx,
+        actor,
+        'ADMIN_RESET_PASSWORD',
+        id,
+        { forcePasswordChange: user.forcePasswordChange },
+        { forcePasswordChange: true, revokedSessions: revoked.count },
+        context,
+        'User',
+      );
+      return { id: user.id, username: user.username, forcePasswordChange: true };
+    });
   }
   async create(dto: CreateUserDto, actor: Actor, context: AuditContext) {
     if (dto.password.length < 4 || dto.password.length > 6)

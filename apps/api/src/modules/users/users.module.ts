@@ -1,5 +1,5 @@
-import { Body, Controller, Get, Module, Post, Req } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, Module, Param, ParseUUIDPipe, Post, Req } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RequirePermission } from '../roles/permissions';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './users.dto';
@@ -19,6 +19,12 @@ class UsersController {
     @Req() req: AuthRequest,
   ) {
     return this.users.create(dto, req.user, auditContext(req));
+  }
+  @Post(':id/reset-password')
+  @RequirePermission('master.manage')
+  @ApiOperation({ summary: 'Admin resets a user password to the temporary initial password' })
+  resetPassword(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthRequest) {
+    return this.users.resetPassword(id, req.user, auditContext(req));
   }
 }
 @Module({ imports: [AuditModule], controllers: [UsersController], providers: [UsersService] })

@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { KeyRound } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -8,6 +9,8 @@ import type { Master, Person } from '@ats/types';
 import { api } from '@/lib/api';
 import { Card, Spinner } from './ui/common';
 import { Button } from './ui/button';
+import { Dialog } from './ui/dialog';
+import { useAuth } from './providers';
 import { toast } from 'sonner';
 const schema = z.object({
   email: z.email('อีเมลไม่ถูกต้อง'),
@@ -24,7 +27,11 @@ const schema = z.object({
   role: z.enum(['ADMIN', 'ISSUER', 'SUPERVISOR', 'APPROVER', 'VIEWER']),
 });
 export function UserSetup() {
+  const { user, logout } = useAuth();
+  const isAdmin = user?.roles.includes('ADMIN') ?? false;
   const [open, setOpen] = useState(false);
+  const [resetTarget, setResetTarget] = useState<Person | null>(null);
+  const [resetting, setResetting] = useState(false);
   const client = useQueryClient();
   const departments = useQuery({
     queryKey: ['departments'],
@@ -56,6 +63,26 @@ export function UserSetup() {
       toast.success('สร้างผู้ใช้แล้ว');
     } catch (error) {
       toast.error((error as Error).message);
+    }
+  }
+  async function resetPassword() {
+    if (!resetTarget || resetting) return;
+    const target = resetTarget;
+    setResetting(true);
+    try {
+      await api(`/users/${target.id}/reset-password`, { method: 'POST' });
+      setResetTarget(null);
+      toast.success(`รีเซ็ตรหัสผ่านของ ${target.username} เป็น Password@1 แล้ว`);
+      if (target.id === user?.id) {
+        await logout().catch(() => undefined);
+        window.location.assign('/login');
+        return;
+      }
+      await client.invalidateQueries({ queryKey: ['users'] });
+    } catch (error) {
+      toast.error((error as Error).message);
+    } finally {
+      setResetting(false);
     }
   }
   return (
@@ -141,6 +168,7 @@ export function UserSetup() {
                 <th className="pb-2 font-medium">ตำแหน่ง</th>
                 <th className="pb-2 font-medium">แผนก</th>
                 <th className="pb-2 font-medium">สิทธิ์</th>
+                {isAdmin && <th className="pb-2 pl-4 font-medium">จัดการรหัสผ่าน</th>}
               </tr>
             </thead>
             <tbody>
@@ -155,11 +183,25 @@ export function UserSetup() {
                       {u.roles[0]}
                     </span>
                   </td>
+                  {isAdmin && (
+                    <td className="py-2.5 pl-4">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        aria-label={`รีเซ็ตรหัสผ่าน ${u.username}`}
+                        disabled={resetting}
+                        onClick={() => setResetTarget(u)}
+                      >
+                        <KeyRound size={14} />
+                        รีเซ็ตรหัสผ่าน
+                      </Button>
+                    </td>
+                  )}
                 </tr>
               ))}
               {!users.data?.length && !users.isPending && (
                 <tr>
-                  <td colSpan={5} className="py-6 text-center text-xs text-slate-500">
+                  <td colSpan={isAdmin ? 6 : 5} className="py-6 text-center text-xs text-slate-500">
                     ยังไม่มีข้อมูลพนักงาน
                   </td>
                 </tr>
@@ -173,6 +215,26 @@ export function UserSetup() {
           )}
         </div>
       </div>
+      <Dialog
+        open={!!resetTarget}
+        onOpenChange={(open) => {
+          if (!open && !resetting) setResetTarget(null);
+        }}
+        title="รีเซ็ตรหัสผ่าน"
+        description={`ตั้งรหัสผ่านของ ${resetTarget?.name ?? ''} (${resetTarget?.username ?? ''}) เป็น Password@1 ผู้ใช้ต้องตั้งรหัสผ่านใหม่ 4–6 ตัวอักษรเมื่อเข้าสู่ระบบครั้งถัดไป`}
+      >
+        {resetTarget?.id === user?.id && (
+          <p className="mb-4 text-sm text-slate-600">คุณจะออกจากระบบหลังรีเซ็ตรหัสผ่านของตัวเอง</p>
+        )}
+        <div className="flex justify-end gap-3">
+          <Button variant="secondary" disabled={resetting} onClick={() => setResetTarget(null)}>
+            ยกเลิก
+          </Button>
+          <Button disabled={resetting} onClick={resetPassword}>
+            {resetting && <Spinner />}ยืนยันรีเซ็ตรหัสผ่าน
+          </Button>
+        </div>
+      </Dialog>
     </Card>
   );
 }
