@@ -9,6 +9,7 @@ interface AuthContextValue {
   loading: boolean;
   login: (identifier: string, password: string, remember: boolean) => Promise<void>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 const AuthContext = createContext<AuthContextValue | null>(null);
 export function useAuth() {
@@ -49,8 +50,15 @@ function AuthProvider({ children }: { children: ReactNode }) {
     queryClient.clear();
     setUser(null);
   }
+  async function refreshUser() {
+    const current = await api<Person>('/auth/me');
+    queryClient.clear();
+    setUser(current);
+  }
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser }}>
+      {children}
+    </AuthContext.Provider>
   );
 }
 export function Providers({ children }: { children: ReactNode }) {

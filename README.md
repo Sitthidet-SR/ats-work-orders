@@ -13,7 +13,7 @@
 - Audit Log จริงแบบ append-only ป้องกัน UPDATE/DELETE ด้วย PostgreSQL trigger
 - S3-compatible StorageService, ตรวจ MIME/เนื้อหาไฟล์, จำกัด 20 MB, private bucket, signed download 5 นาที
 - PDF A4 ภาษาไทยด้วย Sarabun ที่รวมในโปรเจกต์ มี QR สำหรับเปิดเอกสารหลัง Login และระบุผู้ดำเนินการอนุมัติจริง
-- Machine Master และสร้างผู้ใช้/มอบบทบาทผ่านหน้าตั้งค่าสำหรับ Admin พร้อมปุ่มรีเซ็ตรหัสผ่านรายบุคคลเป็น `Password@1` บังคับเปลี่ยนรหัสผ่านครั้งถัดไปและยกเลิก refresh session เดิม
+- Machine Master และสร้างผู้ใช้/จัดการบทบาทรายบุคคลผ่านหน้าตั้งค่าสำหรับ Admin เลือกได้หลายบทบาทและป้องกันการถอนสิทธิ์แอดมินคนสุดท้าย พร้อมปุ่มรีเซ็ตรหัสผ่านรายบุคคลเป็น `Password@1` บังคับเปลี่ยนรหัสผ่านครั้งถัดไปและยกเลิก refresh session เดิม
 - Swagger, SQL migrations, seed, Docker Compose และ Render/Vercel configuration
 
 เมนู ERP อื่นแสดงไว้และปิดการใช้งานตามขอบเขต ไม่มีข้อมูลจำลองฝั่งหน้าเว็บ ไม่มีการเก็บใบงานใน localStorage
@@ -175,4 +175,4 @@ Frontend และ API ข้ามโดเมนใช้ HttpOnly Secure Same
 
 ## ขอบเขตของรุ่นนี้
 
-ไม่มี inventory engine, MRP, BOM engine, purchasing, CRM, accounting, HR, QC workflow หรือ scheduling เพิ่มขึ้น เมนูเหล่านี้รอ future modules ระบบปัจจุบันมีการสร้างผู้ใช้ มอบบทบาท และรีเซ็ตรหัสผ่านโดย Admin; การแก้สิทธิ์/self-service ยังไม่มีหน้า UI ควรเพิ่มตามนโยบาย provisioning ขององค์กรเมื่อใช้งานจริง
+ไม่มี inventory engine, MRP, BOM engine, purchasing, CRM, accounting, HR, QC workflow หรือ scheduling เพิ่มขึ้น เมนูเหล่านี้รอ future modules ระบบปัจจุบันมีการสร้างผู้ใช้ ปรับบทบาท และรีเซ็ตรหัสผ่านโดย Admin; การแก้ข้อมูลส่วนตัวด้วยตนเองยังไม่มีหน้า UI ควรเพิ่มตามนโยบาย provisioning ขององค์กรเมื่อใช้งานจริง

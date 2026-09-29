@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { KeyRound } from 'lucide-react';
+import { KeyRound, ShieldCheck } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -26,12 +26,30 @@ const schema = z.object({
     .max(6, 'รหัสผ่านต้องมีความยาว 4–6 ตัวอักษร'),
   role: z.enum(['ADMIN', 'ISSUER', 'SUPERVISOR', 'APPROVER', 'VIEWER']),
 });
+const roleOptions = [
+  { value: 'ADMIN', label: 'แอดมิน', description: 'จัดการผู้ใช้ เครื่องจักร และใบสั่งงานทั้งหมด' },
+  {
+    value: 'ISSUER',
+    label: 'ผู้สั่งงาน',
+    description: 'สร้าง แก้ไข ส่งอนุมัติ และพิมพ์ใบสั่งงานของตัวเอง',
+  },
+  { value: 'SUPERVISOR', label: 'หัวหน้างาน', description: 'ตรวจสอบใบสั่งงานที่ได้รับมอบหมาย' },
+  {
+    value: 'APPROVER',
+    label: 'ผู้อนุมัติ',
+    description: 'อนุมัติหรือปฏิเสธใบสั่งงานที่ได้รับมอบหมาย',
+  },
+  { value: 'VIEWER', label: 'ผู้ดูข้อมูล', description: 'ดูใบสั่งงาน' },
+];
 export function UserSetup() {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const isAdmin = user?.roles.includes('ADMIN') ?? false;
   const [open, setOpen] = useState(false);
   const [resetTarget, setResetTarget] = useState<Person | null>(null);
   const [resetting, setResetting] = useState(false);
+  const [roleTarget, setRoleTarget] = useState<Person | null>(null);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [savingRoles, setSavingRoles] = useState(false);
   const client = useQueryClient();
   const departments = useQuery({
     queryKey: ['departments'],
@@ -83,6 +101,27 @@ export function UserSetup() {
       toast.error((error as Error).message);
     } finally {
       setResetting(false);
+    }
+  }
+  async function saveRoles() {
+    if (!roleTarget || savingRoles || !selectedRoles.length) return;
+    const target = roleTarget;
+    setSavingRoles(true);
+    try {
+      await api(`/users/${target.id}/roles`, {
+        method: 'PATCH',
+        body: JSON.stringify({ roles: selectedRoles }),
+      });
+      setRoleTarget(null);
+      toast.success(`ปรับสิทธิ์ของ ${target.username} แล้ว`);
+      if (target.id === user?.id) {
+        await refreshUser().catch(() => window.location.reload());
+      }
+      await client.invalidateQueries();
+    } catch (error) {
+      toast.error((error as Error).message);
+    } finally {
+      setSavingRoles(false);
     }
   }
   return (
@@ -168,7 +207,7 @@ export function UserSetup() {
                 <th className="pb-2 font-medium">ตำแหน่ง</th>
                 <th className="pb-2 font-medium">แผนก</th>
                 <th className="pb-2 font-medium">สิทธิ์</th>
-                {isAdmin && <th className="pb-2 pl-4 font-medium">จัดการรหัสผ่าน</th>}
+                {isAdmin && <th className="pb-2 pl-4 font-medium">จัดการ</th>}
               </tr>
             </thead>
             <tbody>
@@ -179,22 +218,44 @@ export function UserSetup() {
                   <td className="py-2.5 pr-4 text-xs text-slate-500">{u.position}</td>
                   <td className="py-2.5 pr-4 text-xs">{u.department?.name || '-'}</td>
                   <td className="py-2.5">
-                    <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
-                      {u.roles[0]}
-                    </span>
+                    <div className="flex flex-wrap gap-1">
+                      {u.roles.map((role) => (
+                        <span
+                          key={role}
+                          className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600"
+                        >
+                          {role}
+                        </span>
+                      ))}
+                    </div>
                   </td>
                   {isAdmin && (
                     <td className="py-2.5 pl-4">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        aria-label={`รีเซ็ตรหัสผ่าน ${u.username}`}
-                        disabled={resetting}
-                        onClick={() => setResetTarget(u)}
-                      >
-                        <KeyRound size={14} />
-                        รีเซ็ตรหัสผ่าน
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          aria-label={`จัดการสิทธิ์ ${u.username}`}
+                          disabled={resetting || savingRoles}
+                          onClick={() => {
+                            setRoleTarget(u);
+                            setSelectedRoles([...u.roles]);
+                          }}
+                        >
+                          <ShieldCheck size={14} />
+                          จัดการสิทธิ์
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          aria-label={`รีเซ็ตรหัสผ่าน ${u.username}`}
+                          disabled={resetting || savingRoles}
+                          onClick={() => setResetTarget(u)}
+                        >
+                          <KeyRound size={14} />
+                          รีเซ็ตรหัสผ่าน
+                        </Button>
+                      </div>
                     </td>
                   )}
                 </tr>
@@ -215,6 +276,54 @@ export function UserSetup() {
           )}
         </div>
       </div>
+      <Dialog
+        open={!!roleTarget}
+        onOpenChange={(open) => {
+          if (!open && !savingRoles) setRoleTarget(null);
+        }}
+        title="จัดการสิทธิ์"
+        description={`${roleTarget?.name ?? ''} (${roleTarget?.username ?? ''}) เลือกได้มากกว่าหนึ่งบทบาท`}
+      >
+        <div className="space-y-3">
+          {roleOptions.map((role) => (
+            <label
+              key={role.value}
+              className="flex items-start gap-3 rounded-lg border border-slate-200 p-3"
+            >
+              <input
+                type="checkbox"
+                aria-label={role.value}
+                disabled={savingRoles}
+                checked={selectedRoles.includes(role.value)}
+                onChange={(e) =>
+                  setSelectedRoles((current) =>
+                    e.target.checked
+                      ? [...current, role.value]
+                      : current.filter((value) => value !== role.value),
+                  )
+                }
+              />
+              <span>
+                <span className="block text-sm font-medium">
+                  {role.label} ({role.value})
+                </span>
+                <span className="mt-1 block text-xs text-slate-500">{role.description}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+        {!selectedRoles.length && (
+          <p className="mt-3 text-xs text-red-600">เลือกอย่างน้อยหนึ่งบทบาท</p>
+        )}
+        <div className="mt-5 flex justify-end gap-3">
+          <Button variant="secondary" disabled={savingRoles} onClick={() => setRoleTarget(null)}>
+            ยกเลิก
+          </Button>
+          <Button disabled={savingRoles || !selectedRoles.length} onClick={saveRoles}>
+            {savingRoles && <Spinner />}บันทึกสิทธิ์
+          </Button>
+        </div>
+      </Dialog>
       <Dialog
         open={!!resetTarget}
         onOpenChange={(open) => {

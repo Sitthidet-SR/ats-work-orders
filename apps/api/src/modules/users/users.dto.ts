@@ -30,3 +30,15 @@ export class CreateUserDto {
   @IsIn(['ADMIN', 'ISSUER', 'SUPERVISOR', 'APPROVER', 'VIEWER'], { each: true })
   roles!: string[];
 }
+export class UpdateUserRolesDto {
+  @ApiProperty({
+    type: [String],
+    enum: ['ADMIN', 'ISSUER', 'SUPERVISOR', 'APPROVER', 'VIEWER'],
+    isArray: true,
+  })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayUnique()
+  @IsIn(['ADMIN', 'ISSUER', 'SUPERVISOR', 'APPROVER', 'VIEWER'], { each: true })
+  roles!: string[];
+}
