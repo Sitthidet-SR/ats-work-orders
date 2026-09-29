@@ -10,7 +10,6 @@ import {
   Save,
   Send,
   Eye,
-  Printer,
   UploadCloud,
   Paperclip,
   X,
@@ -36,7 +35,7 @@ import { Button } from '@/components/ui/button';
 import { Card, Loading, ErrorState, Spinner } from '@/components/ui/common';
 import { Dialog } from '@/components/ui/dialog';
 import { Summary } from './summary';
-import { api, openPdf, openArchivedPdf, pdfBlob } from '@/lib/api';
+import { api, openArchivedPdf, pdfBlob } from '@/lib/api';
 import { today, thaiDate } from '@/lib/utils';
 import { toast } from 'sonner';
 const required = z.string().trim().min(1, 'กรุณากรอกข้อมูล');
@@ -241,7 +240,7 @@ function OrderForm({
   function invalid(_errors: FieldErrors<WorkOrderInput>) {
     toast.error('กรุณาตรวจสอบช่องที่จำเป็นและข้อมูลที่ไม่ถูกต้อง');
   }
-  async function persist(values: WorkOrderInput, mode: 'draft' | 'submit' | 'print' | 'pdf') {
+  async function persist(values: WorkOrderInput, mode: 'draft' | 'submit') {
     if (busy) return;
     if (mode === 'submit' && (!values.supervisorId || !values.approverId)) {
       toast.error('กรุณาระบุหัวหน้างานและผู้อนุมัติก่อนส่งอนุมัติ');
@@ -279,8 +278,7 @@ function OrderForm({
         : null;
       await queryClient.invalidateQueries();
       toast.success(mode === 'submit' ? 'ส่งอนุมัติเรียบร้อย' : 'บันทึกใบสั่งงานเรียบร้อย');
-      if (mode === 'print') await openPdf(order.id, true);
-      if (mode === 'pdf' && archived)
+      if (mode === 'draft' && archived)
         await openArchivedPdf(order.id, archived.id, archived.fileName, true);
       router.push(`/work-orders/${order.id}`);
     } catch (e) {
@@ -336,38 +334,20 @@ function OrderForm({
             <Button
               variant="secondary"
               disabled={busy}
-              onClick={form.handleSubmit((values) => persist(values, 'draft'), invalid)}
-            >
-              <Save size={15} />
-              บันทึกร่าง + PDF
-            </Button>
-            <Button
-              variant="secondary"
-              disabled={busy}
               onClick={form.handleSubmit(showPreview, invalid)}
             >
               <Eye size={15} />
               ดูตัวอย่างใบจริง
             </Button>
-            {user?.permissions.includes('work_order.print') && (
-              <Button
-                disabled={busy}
-                onClick={form.handleSubmit((values) => persist(values, 'pdf'), invalid)}
-              >
-                <Save size={15} />
-                บันทึกและดาวน์โหลด PDF
-              </Button>
-            )}
-            {user?.permissions.includes('work_order.print') && (
-              <Button
-                variant="secondary"
-                disabled={busy}
-                onClick={form.handleSubmit((values) => persist(values, 'print'), invalid)}
-              >
-                <Printer size={15} />
-                Print
-              </Button>
-            )}
+            <Button
+              disabled={busy}
+              onClick={form.handleSubmit((values) => persist(values, 'draft'), invalid)}
+            >
+              <Save size={15} />
+              {user?.permissions.includes('work_order.print')
+                ? 'บันทึกและดาวน์โหลด PDF'
+                : 'บันทึกร่าง'}
+            </Button>
             {user?.permissions.includes('work_order.submit') && (
               <Button
                 variant="blue"

@@ -77,7 +77,7 @@ try {
   const textMode = page.getByRole('checkbox', { name: 'ใช้ข้อความแทนจำนวน' });
   await textMode.check();
   await page.getByLabel('ข้อความแทนจำนวน', { exact: true }).fill('ตามเอกสารแนบท้าย 25 ชิ้น');
-  const save = () => page.getByRole('button', { name: 'บันทึกร่าง + PDF', exact: true }).click();
+  const save = () => page.getByRole('button', { name: 'บันทึกร่าง', exact: true }).click();
   await save();
   await page.waitForURL(`${origin}/work-orders/${id}`);
   assert.equal(payloads.at(-1).quantity, null);
