@@ -17,6 +17,8 @@ const transitions: Record<
 @Injectable()
 export class WorkflowService {
   next(status: WorkOrderStatus, action: WorkflowAction, directApproval = false): WorkOrderStatus {
+    if (directApproval && status === 'DRAFT' && action === 'submit')
+      return WorkOrderStatus.APPROVED;
     if (directApproval && status === 'SUBMITTED') {
       if (action === 'approve') return WorkOrderStatus.APPROVED;
       if (action === 'reject') return WorkOrderStatus.REJECTED;

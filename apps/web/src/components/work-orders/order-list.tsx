@@ -27,6 +27,7 @@ import { useAuth } from '@/components/providers';
 import { PageHeader } from '@/components/erp-shell';
 import { Button } from '@/components/ui/button';
 import { Loading, ErrorState } from '@/components/ui/common';
+import { DateInput } from '@/components/ui/date-input';
 import { OrderTable } from './order-table';
 export function OrderList() {
   const params = useSearchParams();
@@ -204,11 +205,10 @@ export function OrderList() {
             ].map(([key, label]) => (
               <div key={key}>
                 <label className="field">{label}</label>
-                <input
-                  aria-label={label}
-                  type="date"
+                <DateInput
+                  label={label}
                   value={filters[key] ?? ''}
-                  onChange={(e) => change(key, e.target.value)}
+                  onChange={(value) => change(key, value)}
                 />
               </div>
             ))}

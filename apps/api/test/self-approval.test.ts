@@ -17,6 +17,7 @@ function harness(selfApproval: boolean) {
   ];
   const order = { id: 'order', issuerId, status: 'DRAFT', version: 0, approvals, attachments: [], followAttachment: false, quantity: 1, materials: [] };
   const decisions: string[] = [];
+  const auditActions: string[] = [];
   const tx = {
     workOrder: {
       findUnique: async () => order,
@@ -37,23 +38,46 @@ function harness(selfApproval: boolean) {
     },
   };
   const db = { $transaction: async (operation: (client: typeof tx) => Promise<unknown>) => operation(tx) } as unknown as PrismaService;
-  const audit = { write: async () => {} } as unknown as AuditService;
+  const audit = { write: async (_tx: unknown, _actor: unknown, action: string) => { auditActions.push(action); } } as unknown as AuditService;
   const service = new WorkOrdersService(db, {} as DocumentSequenceService, new WorkflowService(), audit);
   const issuer = { id: issuerId, roles: ['APPROVER'], permissions: ['work_order.approve'] } as Actor;
   const approver = { id: 'approver', roles: ['APPROVER'], permissions: ['work_order.approve'] } as Actor;
-  return { service, order, approvals, decisions, issuer, approver };
+  return { service, order, approvals, decisions, auditActions, issuer, approver };
 }
 
-test('issuer assigned as approver decides in a separate auditable action', async () => {
-  const { service, order, approvals, decisions, issuer } = harness(true);
+test('authorized issuer submits and approves in one auditable transaction', async () => {
+  const { service, order, approvals, decisions, auditActions, issuer } = harness(true);
   const context = {} as AuditContext;
   await service.action('order', 'submit', { version: 0 }, issuer, context);
-  assert.equal(order.status, 'SUBMITTED');
-  assert.deepEqual(decisions, ['ISSUER:issuer']);
-  await service.action('order', 'approve', { version: 1 }, issuer, context);
   assert.equal(order.status, 'APPROVED');
   assert.equal(approvals.find((item) => item.stage === 'APPROVER')?.status, 'APPROVED');
   assert.deepEqual(decisions, ['ISSUER:issuer', 'APPROVER:issuer']);
+  assert.deepEqual(auditActions, ['SUBMIT_AND_APPROVE']);
+});
+
+test('older submitted self-approved orders can still be approved explicitly', async () => {
+  const { service, order, decisions, issuer } = harness(true);
+  order.status = 'SUBMITTED';
+  order.version = 1;
+  await service.action('order', 'approve', { version: 1 }, issuer, {} as AuditContext);
+  assert.equal(order.status, 'APPROVED');
+  assert.deepEqual(decisions, ['APPROVER:issuer']);
+});
+
+test('self-approval on submit requires approver permission', async () => {
+  const { service, order, decisions, issuer } = harness(true);
+  issuer.permissions = ['work_order.submit'];
+  await assert.rejects(service.action('order', 'submit', { version: 0 }, issuer, {} as AuditContext));
+  assert.equal(order.status, 'DRAFT');
+  assert.deepEqual(decisions, []);
+});
+
+test('admin submitting another issuer’s order does not approve it as the issuer', async () => {
+  const { service, order, decisions } = harness(true);
+  const admin = { id: 'admin', roles: ['ADMIN'], permissions: ['work_order.submit'] } as Actor;
+  await service.action('order', 'submit', { version: 0 }, admin, {} as AuditContext);
+  assert.equal(order.status, 'SUBMITTED');
+  assert.deepEqual(decisions, ['ISSUER:admin']);
 });
 
 test('a different approver cannot skip the assigned supervisor', async () => {

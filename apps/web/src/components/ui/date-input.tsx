@@ -4,13 +4,15 @@ import { CalendarDays } from 'lucide-react';
 
 function displayDate(value: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  return match ? `${match[3]}/${match[2]}/${match[1]}` : '';
+  return match ? `${match[3]}/${match[2]}/${Number(match[1]) + 543}` : '';
 }
 function parseDate(value: string) {
-  const match = /^(\d{1,2})\/(\d{1,2})\/(20\d{2})$/.exec(value.trim());
+  const match = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(value.trim());
   if (!match) return '';
   const [, day, month, year] = match;
-  const iso = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  const ceYear = Number(year) - 543;
+  if (ceYear < 2000 || ceYear > 2099) return '';
+  const iso = `${ceYear}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
   const date = new Date(`${iso}T00:00:00Z`);
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === iso ? iso : '';
 }
@@ -25,9 +27,9 @@ export function DateInput({
 }: {
   value: string;
   onChange: (value: string) => void;
-  onBlur: () => void;
-  inputRef: Ref<HTMLInputElement>;
-  name: string;
+  onBlur?: () => void;
+  inputRef?: Ref<HTMLInputElement>;
+  name?: string;
   label: string;
 }) {
   const [text, setText] = useState(() => displayDate(value));
@@ -46,6 +48,7 @@ export function DateInput({
         name={name}
         aria-label={label}
         placeholder="วว/ดด/ปปปป"
+        title="ใช้ปี พ.ศ. เช่น 01/10/2569"
         className="pr-12"
         value={text}
         maxLength={10}
@@ -57,7 +60,7 @@ export function DateInput({
         }}
         onBlur={() => {
           if (value) setText(displayDate(value));
-          onBlur();
+          onBlur?.();
         }}
       />
       <button
@@ -82,7 +85,7 @@ export function DateInput({
           lastValue.current = iso;
           setText(displayDate(iso));
           onChange(iso);
-          onBlur();
+          onBlur?.();
         }}
       />
     </div>

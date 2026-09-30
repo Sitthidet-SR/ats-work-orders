@@ -1,4 +1,4 @@
-export const PAPER_TEMPLATE_VERSION = 'reference-2609-067-v3';
+export const PAPER_TEMPLATE_VERSION = 'reference-2609-067-v4';
 export interface PaperOrder {
   documentNo: string;
   orderDate: Date | string;
@@ -32,7 +32,9 @@ export const escapeHtml = (value: unknown) =>
   );
 const paperDate = (value: Date | string) => {
   const date = new Date(value);
-  return `${date.getUTCDate()}/${date.getUTCMonth() + 1}/${date.getUTCFullYear() + 543}`;
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  return `${day}/${month}/${date.getUTCFullYear() + 543}`;
 };
 /** Original reference embedded unchanged. Only writable areas are covered.
  * Coordinates use 1376 x 1780; scale the original sheet to fit A4 without distortion. */

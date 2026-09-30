@@ -44,7 +44,7 @@ const schema = z
   .object({
     issuerDisplayName: z.string().trim().min(1, 'กรุณากรอกผู้สั่งงาน').max(150),
     quantityText: z.string().max(100).optional(),
-    orderDate: z.string().regex(/^20\d{2}-\d{2}-\d{2}$/, 'กรุณาระบุวันที่แบบ วัน/เดือน/ปี (ค.ศ.)'),
+    orderDate: z.string().regex(/^20\d{2}-\d{2}-\d{2}$/, 'กรุณาระบุวันที่แบบ วัน/เดือน/ปี (พ.ศ.)'),
     departmentId: z.uuid('กรุณาเลือกแผนก'),
     description: required.max(20000),
     followAttachment: z.boolean(),
@@ -57,7 +57,7 @@ const schema = z
       .nullable(),
     unit: z.string().max(30),
     machineId: z.uuid('กรุณาเลือกเครื่องจักร'),
-    dueDate: required.regex(/^20\d{2}-\d{2}-\d{2}$/, 'กรุณาใช้ปี ค.ศ.'),
+    dueDate: required.regex(/^20\d{2}-\d{2}-\d{2}$/, 'กรุณาระบุวันที่แบบ วัน/เดือน/ปี (พ.ศ.)'),
     dueTime: z.string().regex(/^$|^([01]\d|2[0-3]):[0-5]\d$/, 'เวลาไม่ถูกต้อง'),
     priority: z.enum(priorities),
     reasonType: z.enum(reasons),
@@ -189,7 +189,9 @@ function OrderForm({
   editing: boolean;
 }) {
   const { user } = useAuth();
-  const canApprove = user?.roles.includes('APPROVER') || user?.roles.includes('ADMIN');
+  const canApprove =
+    (user?.roles.includes('APPROVER') || user?.roles.includes('ADMIN')) &&
+    user?.permissions.includes('work_order.approve');
   const router = useRouter();
   const queryClient = useQueryClient();
   const [files, setFiles] = useState<File[]>([]);
@@ -247,6 +249,7 @@ function OrderForm({
   const data = form.watch();
   const issuerId = editing ? initial!.issuerId : user!.id;
   const selfApproval = data.approverId === issuerId && !data.supervisorId;
+  const autoApprove = selfApproval && user?.id === issuerId;
   const errors = form.formState.errors;
   const register = form.register;
   function invalid(_errors: FieldErrors<WorkOrderInput>) {
@@ -290,7 +293,9 @@ function OrderForm({
         if (mode === 'draft') await downloadWorkOrderPdf(order.id, order.documentNo);
         else await api(`/work-orders/${order.id}/pdf-archives`, { method: 'POST' });
       }
-      toast.success(mode === 'submit' ? 'ส่งอนุมัติเรียบร้อย' : 'บันทึกใบสั่งงานเรียบร้อย');
+      toast.success(mode === 'submit'
+        ? autoApprove ? 'ส่งและอนุมัติใบงานเรียบร้อย' : 'ส่งอนุมัติเรียบร้อย'
+        : 'บันทึกใบสั่งงานเรียบร้อย');
       void queryClient.invalidateQueries({ queryKey: ['orders'], refetchType: 'none' });
       void queryClient.invalidateQueries({ queryKey: ['dashboard'], refetchType: 'none' });
       void queryClient.invalidateQueries({ queryKey: ['order', order.id], refetchType: 'none' });
@@ -373,7 +378,7 @@ function OrderForm({
                 onClick={form.handleSubmit(() => setConfirm(true), invalid)}
               >
                 <Send size={15} />
-                ส่งอนุมัติ
+                {autoApprove ? 'ส่งและอนุมัติ' : 'ส่งอนุมัติ'}
               </Button>
             )}
           </>
@@ -631,7 +636,20 @@ function OrderForm({
                   </select>
                 </Field>
                 <Field label="กำหนดส่งงาน" required error={errors.dueDate?.message}>
-                  <input type="date" aria-label="กำหนดส่งงาน" {...register('dueDate')} />
+                  <Controller
+                    name="dueDate"
+                    control={form.control}
+                    render={({ field }) => (
+                      <DateInput
+                        value={field.value}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        inputRef={field.ref}
+                        name={field.name}
+                        label="กำหนดส่งงาน"
+                      />
+                    )}
+                  />
                 </Field>
                 <Field label="เวลา (เว้นว่างได้)" error={errors.dueTime?.message}>
                   <input type="time" aria-label="เวลา" {...register('dueTime')} />
@@ -789,6 +807,7 @@ function OrderForm({
                         .filter(
                           (p) =>
                             (i === 1 || p.id !== issuerId) &&
+                            (p.id !== issuerId || canApprove) &&
                             (p.roles.includes(i === 0 ? 'SUPERVISOR' : 'APPROVER') ||
                               p.roles.includes('ADMIN')),
                         )
@@ -801,9 +820,9 @@ function OrderForm({
                   </Field>
                 ))}
               </div>
-              {selfApproval && (
+              {autoApprove && (
                 <p className="mt-4 text-xs text-blue-700">
-                  หลังส่งเอกสาร ให้กดอนุมัติในหน้ารายละเอียดอีกครั้ง ระบบจะบันทึกชื่อและเวลาอนุมัติ
+                  เมื่อกดส่ง ระบบจะอนุมัติใบงานทันทีและบันทึกชื่อกับเวลาอนุมัติ
                 </p>
               )}
               <p className="mt-4 flex items-center gap-2 text-[10px] text-slate-400">
@@ -826,9 +845,11 @@ function OrderForm({
       <Dialog
         open={confirm}
         onOpenChange={setConfirm}
-        title="ยืนยันการส่งอนุมัติ"
-        description={selfApproval
-          ? 'ระบบจะบันทึกเอกสารและรอให้คุณกดอนุมัติอีกครั้งในหน้ารายละเอียด หลังจากส่งแล้วจะไม่สามารถแก้ไขได้'
+        title={autoApprove ? 'ยืนยันการส่งและอนุมัติ' : 'ยืนยันการส่งอนุมัติ'}
+        description={autoApprove
+          ? 'ระบบจะบันทึกเอกสารและอนุมัติทันทีในชื่อของคุณ หลังจากส่งแล้วจะไม่สามารถแก้ไขได้'
+          : selfApproval
+            ? 'ระบบจะบันทึกเอกสารและรอให้ผู้สั่งงานอนุมัติ หลังจากส่งแล้วจะไม่สามารถแก้ไขได้'
           : 'ระบบจะบันทึกเอกสาร อัปโหลดไฟล์ และส่งให้หัวหน้าหน้างานตรวจสอบ หลังจากส่งแล้วจะไม่สามารถแก้ไขได้'}
       >
         <div className="flex justify-end gap-2">
@@ -840,7 +861,7 @@ function OrderForm({
             disabled={busy}
             onClick={form.handleSubmit((values) => persist(values, 'submit'), invalid)}
           >
-            {busy && <Spinner />}ยืนยันส่งอนุมัติ
+            {busy && <Spinner />}{autoApprove ? 'ยืนยันและอนุมัติ' : 'ยืนยันส่งอนุมัติ'}
           </Button>
         </div>
       </Dialog>

@@ -261,27 +261,40 @@ export class WorkOrdersService {
       const directApproval =
         !old.approvals.some((approval) => approval.stage === 'SUPERVISOR') &&
         old.approvals.find((approval) => approval.stage === 'APPROVER')?.userId === old.issuerId;
-      const status = this.workflow.next(old.status, action, directApproval);
+      const autoApprove = action === 'submit' && directApproval && actor.id === old.issuerId;
+      if (
+        autoApprove &&
+        (!actor.roles.some((role) => ['APPROVER', 'ADMIN'].includes(role)) ||
+          !actor.permissions.includes('work_order.approve'))
+      )
+        throw new ForbiddenException('ผู้สร้างต้องมีสิทธิ์อนุมัติก่อนอนุมัติใบงานของตนเอง');
+      const status = this.workflow.next(old.status, action, directApproval && (action !== 'submit' || autoApprove));
       const updated = await tx.workOrder.updateMany({
         where: { id, status: old.status, version: dto.version },
         data: { status, version: { increment: 1 } },
       });
       if (updated.count !== 1) throw new ConflictException('ข้อมูลเปลี่ยนแล้ว กรุณาโหลดใหม่');
+      const decidedAt = new Date();
       if (stage && !(action === 'supervisor-review' && status === 'SUPERVISOR_REVIEW'))
         await tx.workOrderApproval.update({
           where: { workOrderId_stage: { workOrderId: id, stage } },
           data: {
             status: action === 'reject' ? 'REJECTED' : 'APPROVED',
-            decidedAt: new Date(),
+            decidedAt,
             decidedById: actor.id,
             comment: dto.comment ?? null,
           },
+        });
+      if (autoApprove)
+        await tx.workOrderApproval.update({
+          where: { workOrderId_stage: { workOrderId: id, stage: 'APPROVER' } },
+          data: { status: 'APPROVED', decidedAt, decidedById: actor.id },
         });
       const order = await tx.workOrder.findUniqueOrThrow({ where: { id }, include: orderInclude });
       await this.audit.write(
         tx,
         actor,
-        action.replace('-', '_').toUpperCase(),
+        autoApprove ? 'SUBMIT_AND_APPROVE' : action.replace('-', '_').toUpperCase(),
         id,
         { status: old.status, version: old.version },
         { status, version: order.version, comment: dto.comment ?? null },
