@@ -27,3 +27,8 @@ test('cannot approve before supervisor review, or skip issuing', () => {
   assert.throws(() => workflow.next('APPROVED', 'start'));
   assert.equal(workflow.next('WAITING_APPROVAL', 'reject'), 'REJECTED');
 });
+test('an assigned self approver can decide after submitting without a supervisor step', () => {
+  assert.equal(workflow.next('SUBMITTED', 'approve', true), 'APPROVED');
+  assert.equal(workflow.next('SUBMITTED', 'reject', true), 'REJECTED');
+  assert.throws(() => workflow.next('DRAFT', 'approve', true));
+});

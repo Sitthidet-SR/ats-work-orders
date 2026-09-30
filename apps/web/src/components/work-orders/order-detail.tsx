@@ -77,27 +77,31 @@ export function OrderDetail({ id }: { id: string }) {
   const order = query.data;
   const admin = user?.roles.includes('ADMIN');
   const owner = admin || user?.id === order.issuerId;
+  const selfApproval =
+    !order.approvals.some((approval) => approval.stage === 'SUPERVISOR') &&
+    order.approvals.some((approval) => approval.stage === 'APPROVER' && approval.user.id === order.issuerId);
   const can = (permission: string) => !!user?.permissions.includes(`work_order.${permission}`);
   const assigned = (stage: string) =>
-    admin || order.approvals.find((a) => a.stage === stage)?.user.id === user?.id;
+    order.approvals.some((approval) =>
+      approval.stage === stage && (admin || approval.user.id === user?.id),
+    );
   const actions: { key: string; label: string; icon: typeof Check }[] = [];
   if (order.status === 'DRAFT' && owner && can('submit'))
     actions.push({ key: 'submit', label: labels.submit, icon: Send });
-  // TODO: เปิดใช้งานเมื่อข้อมูลผู้รับสั่งงาน/ผู้อนุมัติพร้อม
-  // if (
-  //   ['SUBMITTED', 'SUPERVISOR_REVIEW'].includes(order.status) &&
-  //   assigned('SUPERVISOR') &&
-  //   can('supervisor_review')
-  // )
-  //   actions.push({
-  //     key: 'supervisor-review',
-  //     label: order.status === 'SUBMITTED' ? 'รับงานตรวจสอบ' : 'ตรวจสอบแล้ว ส่งผู้อนุมัติ',
-  //     icon: Check,
-  //   });
-  // if (order.status === 'WAITING_APPROVAL' && assigned('APPROVER')) {
-  //   if (can('approve')) actions.push({ key: 'approve', label: labels.approve, icon: Check });
-  //   if (can('reject')) actions.push({ key: 'reject', label: labels.reject, icon: X });
-  // }
+  if (
+    ['SUBMITTED', 'SUPERVISOR_REVIEW'].includes(order.status) &&
+    assigned('SUPERVISOR') &&
+    can('supervisor_review')
+  )
+    actions.push({
+      key: 'supervisor-review',
+      label: order.status === 'SUBMITTED' ? 'รับงานตรวจสอบ' : 'ตรวจสอบแล้ว ส่งผู้อนุมัติ',
+      icon: Check,
+    });
+  if ((order.status === 'WAITING_APPROVAL' || (order.status === 'SUBMITTED' && selfApproval)) && assigned('APPROVER')) {
+    if (can('approve')) actions.push({ key: 'approve', label: labels.approve, icon: Check });
+    if (can('reject')) actions.push({ key: 'reject', label: labels.reject, icon: X });
+  }
   for (const [status, key, Icon] of [
     ['APPROVED', 'issue', FileCheck2],
     ['ISSUED', 'start', Play],
@@ -328,7 +332,7 @@ export function OrderDetail({ id }: { id: string }) {
                 <table>
                   <thead>
                     <tr>
-                      {['#', 'รหัสวัตถุดิบ', 'ชื่อวัตถุดิบ', 'จำนวน', 'หน่วย', 'หมายเหตุ'].map(
+                      {['#', 'วัตถุ / วัสดุ', 'เกรดวัสดุ'].map(
                         (h) => (
                           <th key={h}>{h}</th>
                         ),
@@ -339,11 +343,8 @@ export function OrderDetail({ id }: { id: string }) {
                     {order.materials.map((m, i) => (
                       <tr key={m.id}>
                         <td>{i + 1}</td>
-                        <td>{m.materialCode}</td>
-                        <td>{m.materialName}</td>
-                        <td>{m.quantity}</td>
-                        <td>{m.unit}</td>
-                        <td>{m.remark || '—'}</td>
+                        <td>{m.materialName || m.materialCode || '—'}</td>
+                        <td>{m.materialGrade || '—'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -421,9 +422,9 @@ export function OrderDetail({ id }: { id: string }) {
             unit={order.unit}
             productCode={order.productCode}
             status={order.status}
+            selfApproval={selfApproval}
           />
-          {/* TODO: เปิดใช้งานเมื่อข้อมูลผู้รับสั่งงาน/ผู้อนุมัติพร้อม */}
-          {/* <ApprovalPanel approvals={order.approvals} /> */}
+          <ApprovalPanel approvals={order.approvals} />
         </aside>
       </div>
       <Dialog

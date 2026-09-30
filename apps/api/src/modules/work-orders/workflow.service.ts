@@ -16,7 +16,11 @@ const transitions: Record<
 };
 @Injectable()
 export class WorkflowService {
-  next(status: WorkOrderStatus, action: WorkflowAction): WorkOrderStatus {
+  next(status: WorkOrderStatus, action: WorkflowAction, directApproval = false): WorkOrderStatus {
+    if (directApproval && status === 'SUBMITTED') {
+      if (action === 'approve') return WorkOrderStatus.APPROVED;
+      if (action === 'reject') return WorkOrderStatus.REJECTED;
+    }
     if (action === 'cancel' && !['COMPLETED', 'CANCELLED', 'REJECTED'].includes(status))
       return WorkOrderStatus.CANCELLED;
     const next = action === 'cancel' ? undefined : transitions[action][status];

@@ -1,4 +1,4 @@
-export const PAPER_TEMPLATE_VERSION = 'reference-2609-067-v2';
+export const PAPER_TEMPLATE_VERSION = 'reference-2609-067-v3';
 export interface PaperOrder {
   documentNo: string;
   orderDate: Date | string;
@@ -18,9 +18,7 @@ export interface PaperOrder {
   materials: {
     materialCode: string;
     materialName: string;
-    quantity: number | null;
-    unit: string;
-    remark: string;
+    materialGrade?: string;
   }[];
   specialInstructions: string;
   reasonType: string;
@@ -84,37 +82,22 @@ export function paperHtml(order: PaperOrder, template: Buffer, font: Buffer) {
       !!order.dueTime,
     ),
   ];
-  const positions = [
-    [
-      [340, 941, 110],
-      [571, 941, 158],
-      [794, 941, 247],
-    ],
-    [
-      [248, 986, 347],
-      [742, 986, 126],
-      [937, 986, 237],
-    ],
-  ];
-  for (let i = 0; i < 2; i++) {
-    const material = order.materials[i];
-    const values = [material?.materialCode || '', material?.quantity ?? '', material?.unit || ''];
-    positions[i].forEach(([x, y, w], index) => {
-      fields.push(
-        field(
-          x,
-          y,
-          w,
-          42,
-          values[index] === '' ? '.'.repeat(Math.floor(w / 5)) : values[index],
-          false,
-        ),
-      );
-    });
-  }
-  if (order.materials.length > 2 || order.materials.some((m) => m.materialName || m.remark)) {
+  const materialRows = [0, 1]
+    .map((index) => {
+      const material = order.materials[index];
+      const name = material?.materialName || material?.materialCode || '';
+      const grade = material?.materialGrade || '';
+      return `<div class="material-row"><span>${index + 1}.</span><span>วัสดุ:</span><span class="material-name">${escapeHtml(name)}</span><span>เกรด:</span><span class="material-grade">${escapeHtml(grade)}</span></div>`;
+    })
+    .join('');
+  if (
+    order.materials.length > 2 ||
+    order.materials.some(
+      (m) => Array.from(m.materialName || m.materialCode).length > 42 || Array.from(m.materialGrade || '').length > 20,
+    )
+  ) {
     extra.push(
-      `<h2>รายการวัตถุดิบ/ส่วนประกอบชั่วคราว</h2><table><thead><tr><th>#</th><th>รหัส / ชื่อ</th><th>จำนวน</th><th>หน่วย</th><th>หมายเหตุ</th></tr></thead><tbody>${order.materials.map((m, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(m.materialCode)} ${escapeHtml(m.materialName)}</td><td>${escapeHtml(m.quantity)}</td><td>${escapeHtml(m.unit)}</td><td>${escapeHtml(m.remark)}</td></tr>`).join('')}</tbody></table>`,
+      `<h2>รายการวัตถุดิบ / ส่วนประกอบ</h2><table><thead><tr><th>#</th><th>วัตถุ / วัสดุ</th><th>เกรดวัสดุ</th></tr></thead><tbody>${order.materials.map((m, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(m.materialName || m.materialCode)}</td><td>${escapeHtml(m.materialGrade)}</td></tr>`).join('')}</tbody></table>`,
     );
   }
   for (const [stage, y] of [
@@ -141,8 +124,13 @@ export function paperHtml(order: PaperOrder, template: Buffer, font: Buffer) {
     .mark-slot{display:flex;align-items:center;justify-content:center;width:18px;height:29px}
     .check{display:block;width:9px;height:17px;border-right:2px solid #000;border-bottom:2px solid #000;transform:translateY(-2px) rotate(45deg)}
     .other-mark{position:absolute;left:113px;top:1265px;width:36px;height:33px;background:white;display:flex;align-items:center}
+    .materials-panel{position:absolute;left:113px;top:904px;width:1100px;height:137px;background:white;font-size:23px}
+    .material-heading{height:39px}.material-row{display:flex;align-items:center;gap:8px;height:44px;white-space:nowrap}
+    .material-name,.material-grade{display:block;overflow:hidden;text-overflow:ellipsis;border-bottom:1px dotted #555;height:35px;line-height:33px}
+    .material-name{width:560px;margin-right:15px}.material-grade{width:270px}
     .appendix{padding:48px;font-size:15px;line-height:1.6;break-before:page}h1{font-size:20px}h2{font-size:16px}p{white-space:pre-wrap;overflow-wrap:anywhere}table{width:100%;border-collapse:collapse}th,td{border:1px solid #555;padding:7px;text-align:left;overflow-wrap:anywhere}tr{break-inside:avoid}thead{display:table-header-group}
   </style></head><body><div class="page"><div class="sheet">${fields.join('')}
+    <div class="materials-panel"><div class="material-heading">[รายการวัตถุดิบ / ส่วนประกอบ]</div>${materialRows}</div>
     <div class="writing" style="left:113px;top:1068px;width:1057px;height:99px">${escapeHtml(instructions)}</div>
     <div class="reason-options">
       <span class="reason-option">${mark(order.reasonType === 'REWORK')}<span>งานแก้ไข (Rework)</span></span>

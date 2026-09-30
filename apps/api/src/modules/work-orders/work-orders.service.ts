@@ -71,10 +71,9 @@ export class WorkOrdersService {
       throw new ForbiddenException('ไม่สามารถเปลี่ยนแผนกได้');
     if (
       (dto.supervisorId && dto.supervisorId === dto.approverId) ||
-      dto.supervisorId === actor.id ||
-      dto.approverId === actor.id
+      dto.supervisorId === actor.id
     )
-      throw new BadRequestException('ผู้สั่งงาน หัวหน้า และผู้อนุมัติต้องเป็นคนละคน');
+      throw new BadRequestException('ผู้สั่งงานกับหัวหน้าต้องเป็นคนละคน และหัวหน้ากับผู้อนุมัติต้องเป็นคนละคน');
     const machine = await this.db.machine.findUnique({ where: { id: dto.machineId } });
     if (!machine?.active) throw new BadRequestException('เครื่องจักรไม่พร้อมใช้งาน');
     for (const [id, role] of [
@@ -192,6 +191,7 @@ export class WorkOrdersService {
           workOrderId: id,
           materialCode: m.materialCode,
           materialName: m.materialName,
+          materialGrade: m.materialGrade ?? '',
           quantity: m.quantity,
           unit: m.unit,
           remark: m.remark,
@@ -230,9 +230,11 @@ export class WorkOrdersService {
       if (!old) throw new NotFoundException('ไม่พบใบสั่งงาน');
       if (action === 'submit') {
         this.assertOwner(actor, old);
+        const selfApproval =
+          old.approvals.find((approval) => approval.stage === 'APPROVER')?.userId === old.issuerId;
         if (
-          !old.approvals.some((a) => a.stage === 'SUPERVISOR') ||
-          !old.approvals.some((a) => a.stage === 'APPROVER')
+          !old.approvals.some((a) => a.stage === 'APPROVER') ||
+          (!selfApproval && !old.approvals.some((a) => a.stage === 'SUPERVISOR'))
         )
           throw new BadRequestException('กรุณาระบุหัวหน้างานและผู้อนุมัติก่อนส่งอนุมัติ');
         if (old.followAttachment && old.attachments.length === 0)
@@ -248,13 +250,18 @@ export class WorkOrdersService {
             : ['approve', 'reject'].includes(action)
               ? 'APPROVER'
               : null;
+      if (stage && !old.approvals.some((approval) => approval.stage === stage))
+        throw new BadRequestException('ยังไม่ได้กำหนดผู้รับผิดชอบในขั้นตอนนี้');
       if (
         stage &&
         !actor.roles.includes('ADMIN') &&
         old.approvals.find((a) => a.stage === stage)?.userId !== actor.id
       )
         throw new ForbiddenException('คุณไม่ได้รับมอบหมายในขั้นตอนนี้');
-      const status = this.workflow.next(old.status, action);
+      const directApproval =
+        !old.approvals.some((approval) => approval.stage === 'SUPERVISOR') &&
+        old.approvals.find((approval) => approval.stage === 'APPROVER')?.userId === old.issuerId;
+      const status = this.workflow.next(old.status, action, directApproval);
       const updated = await tx.workOrder.updateMany({
         where: { id, status: old.status, version: dto.version },
         data: { status, version: { increment: 1 } },

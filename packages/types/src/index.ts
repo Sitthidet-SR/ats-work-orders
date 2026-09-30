@@ -15,7 +15,7 @@ export const priorities = ['NORMAL', 'URGENT', 'CRITICAL'] as const;
 export const reasons = ['REWORK', 'SAMPLE', 'ERP_FAILURE', 'URGENT', 'OTHER'] as const;
 export const statusLabels: Record<WorkOrderStatus, string> = {
   DRAFT: 'ร่าง',
-  SUBMITTED: 'ส่งตรวจสอบ',
+  SUBMITTED: 'ส่งอนุมัติ',
   SUPERVISOR_REVIEW: 'หัวหน้าตรวจสอบ',
   WAITING_APPROVAL: 'รออนุมัติ',
   APPROVED: 'อนุมัติแล้ว',
@@ -56,6 +56,7 @@ export interface Material {
   id?: string;
   materialCode: string;
   materialName: string;
+  materialGrade: string;
   quantity: number | null;
   unit: string;
   remark: string;

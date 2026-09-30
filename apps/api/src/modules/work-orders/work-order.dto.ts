@@ -20,8 +20,9 @@ import {
 import { ApiProperty, PartialType } from '@nestjs/swagger';
 import { Priority, ReasonType, WorkOrderStatus } from '@prisma/client';
 export class MaterialDto {
-  @ApiProperty() @IsString() @IsNotEmpty() @MaxLength(100) materialCode!: string;
+  @ApiProperty() @IsString() @MaxLength(100) materialCode!: string;
   @ApiProperty() @IsString() @MaxLength(300) materialName!: string;
+  @ApiProperty({ required: false }) @IsOptional() @IsString() @MaxLength(100) materialGrade?: string;
   @ApiProperty({ nullable: true })
   @ValidateIf((_, value) => value !== null)
   @IsNumber({ maxDecimalPlaces: 4 })

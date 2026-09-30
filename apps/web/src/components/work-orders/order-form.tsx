@@ -67,8 +67,9 @@ const schema = z
     approverId: z.union([z.uuid('กรุณาเลือกผู้อนุมัติ'), z.literal('')]),
     materials: z.array(
       z.object({
-        materialCode: required.max(100),
-        materialName: z.string().max(300),
+        materialCode: z.string().max(100),
+        materialName: required.max(300),
+        materialGrade: required.max(100),
         quantity: z.number({ error: 'กรุณาระบุจำนวน' }).min(0, 'จำนวนห้ามติดลบ').nullable(),
         unit: z.string().max(30),
         remark: z.string().max(2000),
@@ -188,6 +189,7 @@ function OrderForm({
   editing: boolean;
 }) {
   const { user } = useAuth();
+  const canApprove = user?.roles.includes('APPROVER') || user?.roles.includes('ADMIN');
   const router = useRouter();
   const queryClient = useQueryClient();
   const [files, setFiles] = useState<File[]>([]);
@@ -213,6 +215,8 @@ function OrderForm({
                 departmentId: user!.departmentId,
                 followAttachment: false,
                 issuerDisplayName: '',
+                supervisorId: '',
+                approverId: canApprove ? user!.id : '',
               }
             : {}),
         }
@@ -235,12 +239,14 @@ function OrderForm({
           reasonDetail: '',
           specialInstructions: '',
           supervisorId: '',
-          approverId: '',
+          approverId: canApprove ? user!.id : '',
           materials: [],
         },
   });
   const materials = useFieldArray({ control: form.control, name: 'materials' });
   const data = form.watch();
+  const issuerId = editing ? initial!.issuerId : user!.id;
+  const selfApproval = data.approverId === issuerId && !data.supervisorId;
   const errors = form.formState.errors;
   const register = form.register;
   function invalid(_errors: FieldErrors<WorkOrderInput>) {
@@ -248,8 +254,11 @@ function OrderForm({
   }
   async function persist(values: WorkOrderInput, mode: 'draft' | 'submit') {
     if (busy) return;
-    if (mode === 'submit' && (!values.supervisorId || !values.approverId)) {
-      toast.error('กรุณาระบุหัวหน้างานและผู้อนุมัติก่อนส่งอนุมัติ');
+    if (
+      mode === 'submit' &&
+      (!values.approverId || (!values.supervisorId && values.approverId !== issuerId))
+    ) {
+      toast.error('กรุณาระบุผู้อนุมัติ และหัวหน้างานเมื่อส่งให้ผู้อื่นอนุมัติ');
       setConfirm(false);
       return;
     }
@@ -641,6 +650,7 @@ function OrderForm({
                     materials.append({
                       materialCode: '',
                       materialName: '',
+                      materialGrade: '',
                       quantity: null,
                       unit: '',
                       remark: '',
@@ -654,18 +664,10 @@ function OrderForm({
               }
             >
               <div className="scrollbar-thin overflow-x-auto">
-                <table className="min-w-[700px]">
+                <table className="min-w-[520px]">
                   <thead>
                     <tr>
-                      {[
-                        '#',
-                        'รหัสวัตถุดิบ *',
-                        'ชื่อวัตถุดิบ (ถ้ามี)',
-                        'จำนวนที่ใช้',
-                        'หน่วย',
-                        'หมายเหตุ',
-                        'จัดการ',
-                      ].map((h) => (
+                      {['#', 'วัตถุ / วัสดุ *', 'เกรดวัสดุ *', 'จัดการ'].map((h) => (
                         <th key={h}>{h}</th>
                       ))}
                     </tr>
@@ -674,26 +676,15 @@ function OrderForm({
                     {materials.fields.map((field, i) => (
                       <tr key={field.id}>
                         <td>{i + 1}</td>
-                        {(
-                          ['materialCode', 'materialName', 'quantity', 'unit', 'remark'] as const
-                        ).map((key) => (
+                        {(['materialName', 'materialGrade'] as const).map((key) => (
                           <td
                             key={key}
-                            style={{
-                              padding: '8px 5px',
-                              minWidth: key === 'quantity' ? 80 : key === 'unit' ? 70 : 110,
-                            }}
+                            style={{ padding: '8px 5px', minWidth: key === 'materialName' ? 260 : 160 }}
                           >
                             <input
-                              aria-label={`${key} ${i + 1}`}
-                              type={key === 'quantity' ? 'number' : 'text'}
-                              step={key === 'quantity' ? '0.0001' : undefined}
-                              {...register(
-                                `materials.${i}.${key}`,
-                                key === 'quantity'
-                                  ? { setValueAs: (value) => (value === '' ? null : Number(value)) }
-                                  : {},
-                              )}
+                              aria-label={`${key === 'materialName' ? 'วัตถุ / วัสดุ' : 'เกรดวัสดุ'} ${i + 1}`}
+                              type="text"
+                              {...register(`materials.${i}.${key}`)}
                             />
                             <p className="mt-1 text-[10px] text-red-600">
                               {errors.materials?.[i]?.[key]?.message}
@@ -776,6 +767,7 @@ function OrderForm({
               quantityText={data.quantityText}
               unit={data.unit}
               productCode={data.productCode}
+              selfApproval={selfApproval}
             />
             <Card title="การอนุมัติ / ผู้เกี่ยวข้อง" subtitle="ASSIGN APPROVAL">
               <div className="space-y-5">
@@ -796,19 +788,24 @@ function OrderForm({
                       {masters.people
                         .filter(
                           (p) =>
-                            p.id !== (editing ? initial!.issuerId : user?.id) &&
+                            (i === 1 || p.id !== issuerId) &&
                             (p.roles.includes(i === 0 ? 'SUPERVISOR' : 'APPROVER') ||
                               p.roles.includes('ADMIN')),
                         )
                         .map((p) => (
                           <option key={p.id} value={p.id}>
-                            {p.name}
+                            {p.name}{i === 1 && p.id === issuerId ? ' (อนุมัติเอง)' : ''}
                           </option>
                         ))}
                     </select>
                   </Field>
                 ))}
               </div>
+              {selfApproval && (
+                <p className="mt-4 text-xs text-blue-700">
+                  หลังส่งเอกสาร ให้กดอนุมัติในหน้ารายละเอียดอีกครั้ง ระบบจะบันทึกชื่อและเวลาอนุมัติ
+                </p>
+              )}
               <p className="mt-4 flex items-center gap-2 text-[10px] text-slate-400">
                 <Check size={12} />
                 บันทึกร่างและ PDF ได้ก่อนเลือกผู้อนุมัติ
@@ -830,7 +827,9 @@ function OrderForm({
         open={confirm}
         onOpenChange={setConfirm}
         title="ยืนยันการส่งอนุมัติ"
-        description="ระบบจะบันทึกเอกสาร อัปโหลดไฟล์ และส่งให้หัวหน้าหน้างานตรวจสอบ หลังจากส่งแล้วจะไม่สามารถแก้ไขได้"
+        description={selfApproval
+          ? 'ระบบจะบันทึกเอกสารและรอให้คุณกดอนุมัติอีกครั้งในหน้ารายละเอียด หลังจากส่งแล้วจะไม่สามารถแก้ไขได้'
+          : 'ระบบจะบันทึกเอกสาร อัปโหลดไฟล์ และส่งให้หัวหน้าหน้างานตรวจสอบ หลังจากส่งแล้วจะไม่สามารถแก้ไขได้'}
       >
         <div className="flex justify-end gap-2">
           <Button variant="secondary" disabled={busy} onClick={() => setConfirm(false)}>

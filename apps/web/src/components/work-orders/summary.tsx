@@ -11,6 +11,7 @@ export function Summary({
   unit,
   productCode,
   status = 'DRAFT',
+  selfApproval = false,
 }: {
   priority: 'NORMAL' | 'URGENT' | 'CRITICAL';
   machine: string;
@@ -20,10 +21,11 @@ export function Summary({
   unit: string;
   productCode: string;
   status?: WorkOrderStatus;
+  selfApproval?: boolean;
 }) {
-  // TODO: เปิด SUPERVISOR_REVIEW / WAITING_APPROVAL เมื่อข้อมูลผู้รับสั่งงาน/ผู้อนุมัติพร้อม
-  const hiddenStages: WorkOrderStatus[] = ['SUPERVISOR_REVIEW', 'WAITING_APPROVAL'];
-  const visibleStatuses = statuses.slice(0, 8).filter((s) => !hiddenStages.includes(s));
+  const visibleStatuses = statuses.slice(0, 8).filter((stage) =>
+    !selfApproval || !['SUPERVISOR_REVIEW', 'WAITING_APPROVAL'].includes(stage),
+  );
   const step = visibleStatuses.indexOf(status);
   return (
     <Card title="สรุปใบสั่งงาน" subtitle="WORK ORDER SUMMARY">
@@ -90,12 +92,14 @@ export function ApprovalPanel({ approvals }: { approvals: Approval[] }) {
   return (
     <Card title="การอนุมัติ / ผู้เกี่ยวข้อง" subtitle="APPROVAL & SIGNATURE">
       <div className="space-y-5">
-        {['ISSUER', 'SUPERVISOR', 'APPROVER'].map((stage, i) => {
+        {['ISSUER', 'SUPERVISOR', 'APPROVER'].filter((stage) =>
+          approvals.some((approval) => approval.stage === stage),
+        ).map((stage, i) => {
           const item = approvals.find((a) => a.stage === stage);
           return (
             <div key={stage}>
               <p className="mb-2 text-[10px] text-slate-400">
-                {i + 1}. {['ผู้สั่งงาน', 'ผู้รับสั่งงาน / หัวหน้า', 'ผู้อนุมัติ'][i]}
+                {i + 1}. {stage === 'ISSUER' ? 'ผู้สั่งงาน' : stage === 'SUPERVISOR' ? 'ผู้รับสั่งงาน / หัวหน้า' : 'ผู้อนุมัติ'}
               </p>
               <div className="flex items-start gap-3">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-500">

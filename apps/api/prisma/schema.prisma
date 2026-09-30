@@ -167,6 +167,7 @@ model WorkOrderMaterial {
   workOrder WorkOrder @relation(fields:[workOrderId],references:[id],onDelete:Cascade)
   materialCode String
   materialName String
+  materialGrade String @default("")
   quantity Decimal? @db.Decimal(16,4)
   unit String
   remark String @default("")
