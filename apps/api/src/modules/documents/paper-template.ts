@@ -37,7 +37,7 @@ const paperDate = (value: Date | string) => {
   return `${date.getUTCDate()}/${date.getUTCMonth() + 1}/${date.getUTCFullYear() + 543}`;
 };
 /** Original reference embedded unchanged. Only writable areas are covered.
- * Coordinates use 1376 x 1780; Letter preserves the source's 2550:3300 ratio. */
+ * Coordinates use 1376 x 1780; scale the original sheet to fit A4 without distortion. */
 export function paperHtml(order: PaperOrder, template: Buffer, font: Buffer) {
   const extra: string[] = [];
   const limited = (label: string, value: string, length: number) => {
@@ -129,9 +129,9 @@ export function paperHtml(order: PaperOrder, template: Buffer, font: Buffer) {
     `<span class="mark" aria-label="${checked ? 'เลือก' : 'ไม่เลือก'}"><span>(</span><span class="mark-slot">${checked ? '<span class="check"></span>' : ''}</span><span>)</span></span>`;
   return `<!doctype html><html lang="th"><head><meta charset="utf-8"><style>
     @font-face{font-family:PaperThai;src:url(data:font/ttf;base64,${font.toString('base64')})}
-    @page{size:Letter;margin:0}*{box-sizing:border-box}body{margin:0;color:#000;font-family:PaperThai,"Times New Roman",serif}
-    .page{width:816px;height:1056px;position:relative;overflow:hidden;break-after:page}.page:last-child{break-after:auto}
-    .sheet{position:relative;width:1376px;height:1780px;transform:scale(${816 / 1376});transform-origin:top left;background:url(data:image/jpeg;base64,${template.toString('base64')}) 0 0/100% 100% no-repeat}
+    @page{size:A4;margin:0}*{box-sizing:border-box}body{margin:0;color:#000;font-family:PaperThai,"Times New Roman",serif}
+    .page{width:210mm;height:297mm;position:relative;overflow:hidden;break-after:page}.page:last-child{break-after:auto}
+    .sheet{position:relative;top:12mm;width:1376px;height:1780px;transform:scale(${(210 / 25.4 * 96) / 1376});transform-origin:top left;background:url(data:image/jpeg;base64,${template.toString('base64')}) 0 0/100% 100% no-repeat}
     .field{position:absolute;background:white;display:flex;align-items:center;padding:0 7px;white-space:nowrap;font-size:23px;line-height:1.25;font-weight:bold}
     .fit{max-width:100%;display:block}.underlined{text-decoration:underline;text-underline-offset:3px}
     .writing{position:absolute;background:white;white-space:pre-wrap;overflow-wrap:anywhere;font-size:23px;line-height:47px;background-image:repeating-linear-gradient(to bottom,white 0,white 44px,#555 45px,white 46px,white 47px)}

@@ -13,6 +13,7 @@ export abstract class StorageService {
   abstract put(file: Express.Multer.File): Promise<{ key: string; url: string; mimeType: string }>;
   abstract download(key: string, fileName: string): Promise<string>;
   abstract remove(key: string): Promise<void>;
+  abstract read(key: string): Promise<Buffer>;
 }
 const types: Record<string, string[]> = {
   pdf: ['application/pdf'],
@@ -23,6 +24,8 @@ const types: Record<string, string[]> = {
   xlsx: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
   doc: ['application/msword', 'application/x-cfb'],
   docx: ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  ppt: ['application/vnd.ms-powerpoint', 'application/x-cfb'],
+  pptx: ['application/vnd.openxmlformats-officedocument.presentationml.presentation'],
   dwg: ['image/vnd.dwg', 'application/acad', 'application/octet-stream'],
   dxf: ['image/vnd.dxf', 'application/dxf', 'application/octet-stream', 'text/plain'],
   step: ['application/step', 'model/step', 'application/octet-stream', 'text/plain'],
@@ -52,7 +55,9 @@ export class S3StorageService extends StorageService {
     // Preserve native ESM import when compiling the NestJS application to CommonJS.
     const { fileTypeFromBuffer } = await import('file-type');
     const detected = await fileTypeFromBuffer(file.buffer);
-    if (['pdf', 'jpg', 'jpeg', 'png', 'xls', 'xlsx', 'doc', 'docx'].includes(extension)) {
+    if (
+      ['pdf', 'jpg', 'jpeg', 'png', 'xls', 'xlsx', 'doc', 'docx', 'ppt', 'pptx'].includes(extension)
+    ) {
       if (!detected || !types[extension].includes(detected.mime))
         throw new BadRequestException('เนื้อหาไฟล์ไม่ตรงกับชนิดไฟล์');
     } else {
@@ -92,5 +97,12 @@ export class S3StorageService extends StorageService {
     await this.client().send(
       new DeleteObjectCommand({ Bucket: required('STORAGE_BUCKET'), Key: key }),
     );
+  }
+  async read(key: string) {
+    const object = await this.client().send(
+      new GetObjectCommand({ Bucket: required('STORAGE_BUCKET'), Key: key }),
+    );
+    if (!object.Body) throw new BadRequestException('ไม่พบเนื้อหาไฟล์แนบ');
+    return Buffer.from(await object.Body.transformToByteArray());
   }
 }

@@ -100,7 +100,8 @@ async function seed() {
     const finalHash = customHash || passwordHash;
     const u = await db.user.upsert({
       where: { username },
-      update: { name, position, departmentId, passwordHash: finalHash, forcePasswordChange },
+      // Re-seeding updates staff details without undoing a password change or admin reset.
+      update: { name, position, departmentId },
       create: {
         email,
         username,

@@ -11,39 +11,40 @@
     "db:migrate": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "storage:init": "tsx scripts/storage-init.ts",
-    "test": "tsx --test test/workflow.test.ts test/document-sequence.test.ts test/quantity.test.ts test/password-policy.test.ts test/admin-password-reset.test.ts test/user-roles.test.ts test/pdf-performance.test.ts",
+    "test": "tsx --test test/workflow.test.ts test/document-sequence.test.ts test/quantity.test.ts test/password-policy.test.ts test/admin-password-reset.test.ts test/user-roles.test.ts test/pdf-performance.test.ts test/pdf-attachments.test.ts",
     "test:integration": "tsx --test test/integration.test.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1009.0",
+    "@aws-sdk/s3-request-presigner": "^3.1009.0",
     "@nestjs/common": "^11.1.17",
     "@nestjs/core": "^11.1.17",
-    "@nestjs/platform-express": "^11.1.17",
     "@nestjs/jwt": "^11.0.2",
+    "@nestjs/platform-express": "^11.1.17",
     "@nestjs/swagger": "^11.2.6",
     "@nestjs/throttler": "^6.5.0",
     "@prisma/client": "6.19.3",
-    "@aws-sdk/client-s3": "^3.1009.0",
-    "@aws-sdk/s3-request-presigner": "^3.1009.0",
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.3",
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.3.1",
+    "file-type": "^21.3.0",
     "helmet": "^8.1.0",
-    "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.2",
+    "pdf-lib": "1.17.1",
     "playwright": "^1.58.2",
     "qrcode": "^1.5.4",
-    "file-type": "^21.3.0"
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
   },
   "devDependencies": {
-    "prisma": "6.19.3",
-    "tsx": "^4.21.0",
-    "@types/node": "^24.12.0",
-    "@types/express": "^5.0.6",
-    "@types/cookie-parser": "^1.4.10",
     "@types/bcrypt": "^6.0.0",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/express": "^5.0.6",
     "@types/multer": "^2.0.0",
-    "@types/qrcode": "^1.5.6"
+    "@types/node": "^24.12.0",
+    "@types/qrcode": "^1.5.6",
+    "prisma": "6.19.3",
+    "tsx": "^4.21.0"
   }
 }

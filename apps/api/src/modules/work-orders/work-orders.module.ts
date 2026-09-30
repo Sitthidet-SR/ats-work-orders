@@ -6,9 +6,16 @@ import { AttachmentsService } from './attachments.service';
 import { PdfService } from '../documents/pdf.service';
 import { AuditModule } from '../audit/audit.module';
 import { StorageModule } from '../storage/storage.module';
+import { PdfAttachmentsService } from '../documents/pdf-attachments.service';
 @Module({
   imports: [AuditModule, StorageModule],
   controllers: [WorkOrdersController],
-  providers: [WorkOrdersService, WorkflowService, AttachmentsService, PdfService],
+  providers: [
+    WorkOrdersService,
+    WorkflowService,
+    AttachmentsService,
+    PdfService,
+    PdfAttachmentsService,
+  ],
 })
 export class WorkOrdersModule {}

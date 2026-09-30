@@ -6,6 +6,7 @@ import { PrismaService } from '../src/common/prisma.service';
 import { WorkOrdersService } from '../src/modules/work-orders/work-orders.service';
 import { Actor } from '../src/modules/auth/auth.types';
 import { CreateWorkOrderDto } from '../src/modules/work-orders/work-order.dto';
+import { PdfAttachmentsService } from '../src/modules/documents/pdf-attachments.service';
 
 const dto = {
   issuerDisplayName: 'Issuer',
@@ -78,7 +79,7 @@ test('PDF requests reuse Chromium, close every page and restart after disconnect
       },
     } as unknown as Browser;
   });
-  const service = new PdfService({} as WorkOrdersService, database());
+  const service = new PdfService({} as WorkOrdersService, database(), {} as PdfAttachmentsService);
   await Promise.all([service.preview(dto, actor), service.preview(dto, actor)]);
   assert.equal(launches, 1);
   assert.equal(maxOpenPages, 1, 'Concurrent PDF rendering must remain bounded');
@@ -105,7 +106,7 @@ test('a failed browser launch is retried by the next PDF request', async (t) => 
       }),
     } as unknown as Browser;
   });
-  const service = new PdfService({} as WorkOrdersService, database());
+  const service = new PdfService({} as WorkOrdersService, database(), {} as PdfAttachmentsService);
   await assert.rejects(service.preview(dto, actor), /launch failed/);
   assert.equal((await service.preview(dto, actor)).toString(), '%PDF-retry');
   assert.equal(launches, 2);
@@ -149,7 +150,7 @@ test(
         ownerChecks++;
       },
     } as unknown as WorkOrdersService;
-    const service = new PdfService(orders, database());
+    const service = new PdfService(orders, database(), {} as PdfAttachmentsService);
     const preview = service.preview(dto, actor);
     try {
       await ready;

@@ -9,6 +9,7 @@ import { CreateWorkOrderDto } from '../work-orders/work-order.dto';
 import { Actor } from '../auth/auth.types';
 import { PrismaService } from '../../common/prisma.service';
 import { paperHtml, PaperOrder, PAPER_TEMPLATE_VERSION } from './paper-template';
+import { PdfAttachmentsService } from './pdf-attachments.service';
 const metadata = {
   id: true,
   orderVersion: true,
@@ -28,6 +29,7 @@ export class PdfService implements OnModuleDestroy {
   constructor(
     private readonly orders: WorkOrdersService,
     private readonly db: PrismaService,
+    private readonly attachments: PdfAttachmentsService,
   ) {}
   private serial<T>(operation: () => Promise<T>): Promise<T> {
     const task = this.queue.then(operation);
@@ -87,7 +89,7 @@ export class PdfService implements OnModuleDestroy {
         }
       });
       return await page.pdf({
-        format: 'Letter',
+        format: 'A4',
         printBackground: true,
         margin: { top: 0, bottom: 0, left: 0, right: 0 },
         preferCSSPageSize: true,
@@ -119,13 +121,13 @@ export class PdfService implements OnModuleDestroy {
     const key = {
       workOrderId: order.id,
       orderVersion: order.version,
-      templateVersion: PAPER_TEMPLATE_VERSION,
+      templateVersion: `${PAPER_TEMPLATE_VERSION}-attachments-a4-v2`,
     };
     let saved = await this.db.workOrderPdf.findUnique({
       where: { workOrderId_orderVersion_templateVersion: key },
     });
     if (!saved) {
-      const buffer = await this.render({
+      const form = await this.render({
         ...order,
         quantity: order.quantity == null ? null : Number(order.quantity),
         materials: order.materials.map((m) => ({
@@ -133,6 +135,11 @@ export class PdfService implements OnModuleDestroy {
           quantity: m.quantity == null ? null : Number(m.quantity),
         })),
       });
+      const buffer = await this.attachments.append(
+        id,
+        form,
+        order.attachments.map((file) => file.id),
+      );
       const snapshot = JSON.parse(
         JSON.stringify({ ...order, activities: undefined }),
       ) as Prisma.InputJsonValue;

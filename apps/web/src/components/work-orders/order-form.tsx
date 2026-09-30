@@ -34,6 +34,7 @@ import { PageHeader } from '@/components/erp-shell';
 import { Button } from '@/components/ui/button';
 import { Card, Loading, ErrorState, Spinner } from '@/components/ui/common';
 import { Dialog } from '@/components/ui/dialog';
+import { DateInput } from '@/components/ui/date-input';
 import { Summary } from './summary';
 import { api, downloadWorkOrderPdf, pdfBlob } from '@/lib/api';
 import { today, thaiDate } from '@/lib/utils';
@@ -43,7 +44,7 @@ const schema = z
   .object({
     issuerDisplayName: z.string().trim().min(1, 'กรุณากรอกผู้สั่งงาน').max(150),
     quantityText: z.string().max(100).optional(),
-    orderDate: required.regex(/^20\d{2}-\d{2}-\d{2}$/, 'กรุณาใช้ปี ค.ศ.'),
+    orderDate: z.string().regex(/^20\d{2}-\d{2}-\d{2}$/, 'กรุณาระบุวันที่แบบ วัน/เดือน/ปี (ค.ศ.)'),
     departmentId: z.uuid('กรุณาเลือกแผนก'),
     description: required.max(20000),
     followAttachment: z.boolean(),
@@ -323,7 +324,7 @@ function OrderForm({
         toast.error(`${file.name}: ไฟล์เกิน 20 MB`);
         return false;
       }
-      if (!/\.(pdf|jpe?g|png|xlsx?|docx?|dwg|dxf|step|stp)$/i.test(file.name)) {
+      if (!/\.(pdf|jpe?g|png|xlsx?|docx?|pptx?|dwg|dxf|step|stp)$/i.test(file.name)) {
         toast.error(`${file.name}: ชนิดไฟล์ไม่รองรับ`);
         return false;
       }
@@ -391,7 +392,20 @@ function OrderForm({
                   )}
                 </Field>
                 <Field label="วันที่สั่งการ" required error={errors.orderDate?.message}>
-                  <input type="date" aria-label="วันที่สั่งการ" {...register('orderDate')} />
+                  <Controller
+                    name="orderDate"
+                    control={form.control}
+                    render={({ field }) => (
+                      <DateInput
+                        value={field.value}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        inputRef={field.ref}
+                        name={field.name}
+                        label="วันที่สั่งการ"
+                      />
+                    )}
+                  />
                 </Field>
                 <Field label="ผู้สั่งงาน" required error={errors.issuerDisplayName?.message}>
                   <input
@@ -473,7 +487,7 @@ function OrderForm({
                   type="file"
                   multiple
                   className="sr-only"
-                  accept=".pdf,.jpg,.jpeg,.png,.xls,.xlsx,.doc,.docx,.dwg,.dxf,.step,.stp"
+                  accept=".pdf,.jpg,.jpeg,.png,.xls,.xlsx,.doc,.docx,.ppt,.pptx,.dwg,.dxf,.step,.stp"
                   onChange={(e) => {
                     addFiles(Array.from(e.target.files ?? []));
                     e.target.value = '';
@@ -481,6 +495,9 @@ function OrderForm({
                 />
                 <p className="text-[10px] text-slate-400">
                   PDF, รูปภาพ, Office, CAD · สูงสุด 20 MB ต่อไฟล์
+                  <br />
+                  PDF และ Word / Excel / PowerPoint จะต่อท้ายใบสั่งงานในไฟล์ PDF
+                  สำหรับดาวน์โหลดและพิมพ์
                 </p>
               </div>
               {editing &&
@@ -832,7 +849,7 @@ function OrderForm({
         open={preview}
         onOpenChange={setPreview}
         title="ตัวอย่างใบสั่งงาน"
-        description="แบบเดียวกับ PDF ที่จะบันทึก เลขที่เอกสารจริงจะออกเมื่อบันทึก"
+        description="ตัวอย่างหน้าใบสั่งงาน เลขที่เอกสารและเอกสารแนบ PDF / Office จะรวมเมื่อบันทึก"
         wide
       >
         {previewUrl && (

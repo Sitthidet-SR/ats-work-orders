@@ -111,14 +111,31 @@ try {
   await page.getByText('กรุณากรอกผู้สั่งงาน', { exact: true }).waitFor();
   assert.equal(payloads.length, 0, 'Missing issuer must prevent saving');
   await issuer.fill('ผู้สั่งงานทดสอบ');
+  const orderDate = page.getByLabel('วันที่สั่งการ', { exact: true });
+  assert.match(await orderDate.inputValue(), /^\d{2}\/\d{2}\/20\d{2}$/);
+  await orderDate.fill('31/09/2026');
+  await save();
+  await page.getByText('กรุณาระบุวันที่แบบ วัน/เดือน/ปี (ค.ศ.)', { exact: true }).waitFor();
+  assert.equal(payloads.length, 0, 'An impossible date must not be saved');
+  await page.getByLabel('ปฏิทินวันที่สั่งการ', { exact: true }).fill('2026-09-29');
+  assert.equal(await orderDate.inputValue(), '29/09/2026');
+  await orderDate.fill('1/10/2026');
+  await page.getByLabel('กำหนดส่งงาน', { exact: true }).fill('2026-10-02');
+  assert.equal(await orderDate.inputValue(), '01/10/2026');
   await save();
   await page.waitForURL(`${origin}/work-orders/${id}`);
   assert.equal(saved.issuerDisplayName, 'ผู้สั่งงานทดสอบ');
   assert.equal(saved.unit, '');
+  assert.equal(
+    saved.orderDate,
+    '2026-10-01',
+    'The displayed day/month/year must map to the same ISO date',
+  );
   assert.equal(payloads.at(-1).quantity, null);
   assert.equal(saved.quantityText, 'ตามเอกสารแนบท้าย 25 ชิ้น');
   await page.goto(`${origin}/work-orders/${id}/edit`);
   await page.getByLabel('ข้อความแทนจำนวน', { exact: true }).waitFor();
+  assert.equal(await orderDate.inputValue(), '01/10/2026');
   assert.equal(await textMode.isChecked(), true);
   assert.equal(
     await page.getByLabel('ข้อความแทนจำนวน', { exact: true }).inputValue(),
