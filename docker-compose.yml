@@ -42,6 +42,7 @@ services:
       STORAGE_ENDPOINT: http://object-storage:9000
       PORT: 4000
       NODE_ENV: development
+      FRONTEND_URL: http://localhost:3001
       # Browser download URLs use the host's object storage endpoint.
       STORAGE_PUBLIC_ENDPOINT: http://localhost:9000
       CHROMIUM_EXECUTABLE_PATH: /usr/bin/chromium
@@ -56,8 +57,9 @@ services:
       dockerfile: apps/web/Dockerfile
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000/api}
-    ports: ['3000:3000']
+    ports: ['3001:3000']
     depends_on: [backend]
 volumes:
   postgres_data:
   object_data:
+
