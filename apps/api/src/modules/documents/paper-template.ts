@@ -123,8 +123,8 @@ export function paperHtml(order: PaperOrder, logo: Buffer, font: Buffer) {
     html,body{margin:0;padding:0;color:#111;font-family:PaperThai,serif}
     .page{position:relative;width:210mm;height:297mm;overflow:hidden;break-after:page}
     .page:last-child{break-after:auto}
-    .border{position:absolute;left:35px;top:77px;width:724px;height:992px;border:1.5px solid #111}
-    .logo{position:absolute;left:60px;top:111px;width:150px;height:auto}
+    .border{position:absolute;left:35px;top:55px;width:724px;height:1012px;border:1.5px solid #111}
+    .logo{position:absolute;left:60px;top:95px;width:150px;height:auto}
     .title{position:absolute;left:285px;top:116px;width:415px;font-size:17px;text-decoration:underline;white-space:nowrap}
     .placed{position:absolute;font-size:15px;line-height:24px;white-space:nowrap}
     .label{font-weight:normal}.value{display:flex;align-items:center;font-weight:bold;padding-left:2px}
