@@ -52,22 +52,47 @@ async function seed() {
   // ─── Machines ───────────────────────────────────────────────────────
   const machineList = [
     'CNC Milling',
-    'CNC Turning',
-    'CNC Router',
-    'Laser',
-    'Water Jet',
-    'Manual',
-    'Other',
+    'Milling',
+    'CNC Lathe',
+    'Lathe',
+    'Assembly (งานประกอบ)',
+    'Welding (งานเชื่อม)',
+    'Laser / Water Jet',
+    'Drilling / Deburring / Tapping (งานเจาะ / ลบคม / ต๊าปเกลียว)',
+    'Hardening (กระบวนการชุบแข็ง)',
+    'Coating (งานเคลือบผิว / ทำสี)',
+    'Casting (งานหล่อ)',
+    'Grinding (งานเจียร)',
+    'FSB (งานยิงทราย)'
   ];
-  const machines: Machine[] = [];
-  for (const [i, name] of machineList.entries())
-    machines.push(
-      await db.machine.upsert({
-        where: { code: `M${i + 1}` },
-        update: { name },
-        create: { code: `M${i + 1}`, name },
-      }),
-    );
+  
+  const allMachines = await db.machine.findMany();
+  const existingNames = new Set(allMachines.map(m => m.name));
+  
+  let maxCode = 0;
+  for (const m of allMachines) {
+    if (m.code.startsWith('M')) {
+      const num = parseInt(m.code.substring(1), 10);
+      if (!isNaN(num) && num > maxCode) maxCode = num;
+    }
+  }
+
+  for (const name of machineList) {
+    if (!existingNames.has(name)) {
+      maxCode++;
+      await db.machine.create({ data: { code: `M${maxCode}`, name, active: true } });
+    }
+  }
+
+  // Deactivate machines not in the current list
+  const allowedSet = new Set(machineList);
+  const updatedAllMachines = await db.machine.findMany();
+  for (const m of updatedAllMachines) {
+    const shouldBeActive = allowedSet.has(m.name);
+    if (m.active !== shouldBeActive) {
+      await db.machine.update({ where: { id: m.id }, data: { active: shouldBeActive } });
+    }
+  }
 
   // ─── Roles & Permissions ───────────────────────────────────────────
   for (const [name, permissions] of Object.entries(rolePermissions)) {
