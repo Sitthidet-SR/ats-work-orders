@@ -83,7 +83,7 @@ export function paperHtml(order: PaperOrder, logo: Buffer, font: Buffer) {
     m.quantity !== null || Array.from(m.machine.name).length > 28 || Array.from(m.remark).length > 32
   )) {
     extra.push(
-      `<h2>แผนการผลิต (เครื่องจักร)</h2><table><thead><tr><th>#</th><th>เครื่องจักร</th><th>จำนวน</th><th>หมายเหตุ</th></tr></thead><tbody>${order.machineDetails.map((m, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(m.machine.name)}</td><td>${escapeHtml(m.quantity ?? '')}</td><td>${escapeHtml(m.remark)}</td></tr>`).join('')}</tbody></table>`,
+      `<h2>แผนการผลิต (เครื่องจักร)</h2><table><thead><tr><th>#</th><th>เครื่องจักร</th><th>จำนวน</th><th>ขั้นตอนการผลิต</th></tr></thead><tbody>${order.machineDetails.map((m, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(m.machine.name)}</td><td>${escapeHtml(m.quantity ?? '')}</td><td>${escapeHtml(m.remark)}</td></tr>`).join('')}</tbody></table>`,
     );
   }
   const materials = Array.from({ length: 2 }, (_, i) => {

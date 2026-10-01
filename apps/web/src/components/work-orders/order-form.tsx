@@ -662,7 +662,7 @@ function OrderForm({
               </div>
             </Card>
             <Card
-              title="แผนการผลิต (ไลน์ผลิต / เครื่องจักร)"
+              title="ขั้นตอนการผลิต / เครื่องจักร"
               subtitle="02 / PRODUCTION PLANNING"
               action={
                 <Button
@@ -730,11 +730,11 @@ function OrderForm({
                         />
                       </Field>
                     </div>
-                    <div className="w-full sm:w-[200px]">
-                      <Field label="หมายเหตุ" error={errors.machines?.[i]?.remark?.message}>
+                    <div className="min-w-[220px] flex-1">
+                      <Field label="ขั้นตอนการผลิต" error={errors.machines?.[i]?.remark?.message}>
                         <input
                           type="text"
-                          placeholder="หมายเหตุเพิ่มเติม"
+                          placeholder="เช่น ตัดชิ้นงาน, เจาะรู, ประกอบ"
                           {...register(`machines.${i}.remark`)}
                         />
                       </Field>
