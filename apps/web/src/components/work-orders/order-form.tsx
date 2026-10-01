@@ -663,7 +663,7 @@ function OrderForm({
             </Card>
             <Card
               title="ขั้นตอนการผลิต / เครื่องจักร"
-              subtitle="02 / PRODUCTION PLANNING"
+              subtitle="02 / PRODUCTION PLANNING · เพิ่มได้สูงสุด 5 รายการ"
               action={
                 <Button
                   type="button"

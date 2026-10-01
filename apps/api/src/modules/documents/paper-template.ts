@@ -68,8 +68,10 @@ export function paperHtml(order: PaperOrder, logo: Buffer, font: Buffer) {
     order.reasonDetail || (order.reasonType === 'URGENT' ? 'งานด่วน' : ''),
     65,
   );
-  const steps = Array.from({ length: 5 }, (_, i) => {
-    const machine = order.machineDetails[i];
+  const machines = order.machineDetails.slice(0, 5);
+  const belowStepsOffset = (5 - machines.length) * 28;
+  const belowStepsY = (y: number) => y - belowStepsOffset;
+  const steps = machines.map((machine, i) => {
     const y = 489 + i * 28;
     return [
       label(66, y, 18, `${i + 1}.`),
@@ -88,7 +90,7 @@ export function paperHtml(order: PaperOrder, logo: Buffer, font: Buffer) {
   }
   const materials = Array.from({ length: 2 }, (_, i) => {
     const item = order.materials[i];
-    const y = 721 + i * 28;
+    const y = belowStepsY(721 + i * 28);
     return [
       label(66, y, 18, `${i + 1}.`),
       label(84, y, 37, 'วัสดุ:'),
@@ -111,7 +113,7 @@ export function paperHtml(order: PaperOrder, logo: Buffer, font: Buffer) {
     ['APPROVER', 'ผู้อนุมัติ'],
   ] as const).map(([stage, title], i) => {
     const approval = order.approvals.find((a) => a.stage === stage && a.status === 'APPROVED');
-    return at(66, 944 + i * 42, 450, 27,
+    return at(66, belowStepsY(944 + i * 42), 450, 27,
       `<span>ลงชื่อ: </span><span class="signature-line">${escapeHtml(approval?.decidedBy?.name || '')}</span><span>(${title})</span>`,
       'signature');
   }).join('');
@@ -157,18 +159,18 @@ export function paperHtml(order: PaperOrder, logo: Buffer, font: Buffer) {
     ${value(484, 424, 220, order.unit)}
     ${label(65, 458, 165, '[ขั้นตอนการผลิต]', 'section')}
     ${steps}
-    ${label(65, 648, 166, 'กำหนดส่งงาน (Due Date):')}
-    ${value(230, 648, 112, paperDate(order.dueDate))}
-    ${label(348, 648, 100, 'เวลา (Time):')}
-    ${dotted(447, 648, 196, order.dueTime)}
-    ${label(65, 691, 277, '[รายการวัตถุดิบ / ส่วนประกอบ]', 'section')}
+    ${label(65, belowStepsY(648), 166, 'กำหนดส่งงาน (Due Date):')}
+    ${value(230, belowStepsY(648), 112, paperDate(order.dueDate))}
+    ${label(348, belowStepsY(648), 100, 'เวลา (Time):')}
+    ${dotted(447, belowStepsY(648), 196, order.dueTime)}
+    ${label(65, belowStepsY(691), 277, '[รายการวัตถุดิบ / ส่วนประกอบ]', 'section')}
     ${materials}
-    ${label(65, 773, 450, '[ขั้นตอน/คำสั่งพิเศษ (Special Instructions)]')}
-    ${at(65, 799, 665, 50, escapeHtml(instructions), 'instructions')}
-    ${label(65, 844, 450, '[เหตุผลในการออกเอกสารชั่วคราว]')}
-    ${at(65, 872, 660, 26,
+    ${label(65, belowStepsY(773), 450, '[ขั้นตอน/คำสั่งพิเศษ (Special Instructions)]')}
+    ${at(65, belowStepsY(799), 665, 50, escapeHtml(instructions), 'instructions')}
+    ${label(65, belowStepsY(844), 450, '[เหตุผลในการออกเอกสารชั่วคราว]')}
+    ${at(65, belowStepsY(872), 660, 26,
       `<span class="reason-option">${mark(order.reasonType === 'REWORK')} งานแก้ไข (Rework)</span><span class="reason-option">${mark(order.reasonType === 'SAMPLE')} ผลิตสินค้าตัวอย่าง (Sample)</span><span class="reason-option">${mark(order.reasonType === 'ERP_FAILURE')} ระบบ ERP ขัดข้อง</span>`, 'reason')}
-    ${at(65, 898, 660, 28, `${mark(other)} อื่นๆ (ระบุ): <span class="underlined">${escapeHtml(other ? reason : '')}</span>`, 'other')}
+    ${at(65, belowStepsY(898), 660, 28, `${mark(other)} อื่นๆ (ระบุ): <span class="underlined">${escapeHtml(other ? reason : '')}</span>`, 'other')}
     ${signatures}
   </div>${extra.length ? `<section class="appendix"><h1>เอกสารแนบท้าย ${escapeHtml(order.documentNo)}</h1>${extra.join('')}</section>` : ''}</body></html>`;
 }
