@@ -114,6 +114,7 @@ model Machine {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   workOrders WorkOrder[]
+  workOrderMachines WorkOrderMachine[]
   @@map("machines")
 }
 model DocumentSequence {
@@ -138,7 +139,7 @@ model WorkOrder {
   productName String
   quantity Decimal? @db.Decimal(16,4)
   unit String
-  machineId String @db.Uuid
+  machineId String? @db.Uuid
   dueDate DateTime @db.Date
   dueTime String
   priority Priority @default(NORMAL)
@@ -149,7 +150,8 @@ model WorkOrder {
   version Int @default(0)
   issuer User @relation(fields:[issuerId],references:[id])
   department Department @relation(fields:[departmentId],references:[id])
-  machine Machine @relation(fields:[machineId],references:[id])
+  machine Machine? @relation(fields:[machineId],references:[id])
+  machines WorkOrderMachine[]
   materials WorkOrderMaterial[]
   attachments WorkOrderAttachment[]
   approvals WorkOrderApproval[]
@@ -160,6 +162,18 @@ model WorkOrder {
   @@index([issuerId,orderDate])
   @@index([machineId,departmentId])
   @@map("work_orders")
+}
+model WorkOrderMachine {
+  id String @id @default(uuid()) @db.Uuid
+  workOrderId String @db.Uuid
+  workOrder WorkOrder @relation(fields:[workOrderId],references:[id],onDelete:Cascade)
+  machineId String @db.Uuid
+  machine Machine @relation(fields:[machineId],references:[id])
+  quantity Decimal? @db.Decimal(16,4)
+  remark String @default("")
+  sortOrder Int
+  @@index([workOrderId,sortOrder])
+  @@map("work_order_machines")
 }
 model WorkOrderMaterial {
   id String @id @default(uuid()) @db.Uuid

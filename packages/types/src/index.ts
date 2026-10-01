@@ -62,6 +62,13 @@ export interface Material {
   remark: string;
   sortOrder: number;
 }
+export interface MachineAssignment {
+  id?: string;
+  machineId: string;
+  quantity: number | null;
+  remark: string;
+  sortOrder: number;
+}
 export interface Attachment {
   id: string;
   fileName: string;
@@ -98,7 +105,6 @@ export interface WorkOrderInput {
   productName: string;
   quantity: number | null;
   unit: string;
-  machineId: string;
   dueDate: string;
   dueTime: string;
   priority: (typeof priorities)[number];
@@ -108,6 +114,7 @@ export interface WorkOrderInput {
   supervisorId: string;
   approverId: string;
   materials: Material[];
+  machines: MachineAssignment[];
 }
 export interface PdfArchive {
   id: string;
@@ -131,7 +138,9 @@ export interface WorkOrder extends WorkOrderInput {
   updatedAt: string;
   issuer: { id: string; name: string; position: string; department: Master };
   department: Master;
-  machine: Master;
+  machineId?: string;
+  machine?: Master;
+  machineDetails: { machine: Master; quantity: number | null; remark: string }[];
   attachments: Attachment[];
   approvals: Approval[];
   activities: AuditEvent[];

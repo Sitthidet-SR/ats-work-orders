@@ -9,7 +9,7 @@ test('PDF order and due dates use zero-padded day/month/Buddhist year', () => {
     dueDate: new Date('2026-11-09T00:00:00.000Z'),
     issuer: { name: 'Issuer' },
     department: { name: 'Department' },
-    machine: { name: 'Machine' },
+    machineDetails: [{ machine: { name: 'Machine' }, quantity: null, remark: '' }],
     description: 'Description',
     followAttachment: false,
     productCode: 'PART-1',

@@ -33,6 +33,17 @@ export class MaterialDto {
   @ApiProperty() @IsString() @MaxLength(2000) remark!: string;
   @ApiProperty() @IsInt() @Min(0) sortOrder!: number;
 }
+export class MachineAssignmentDto {
+  @ApiProperty() @IsUUID() machineId!: string;
+  @ApiProperty({ nullable: true })
+  @ValidateIf((_, value) => value !== null)
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @Min(0)
+  @Max(999999999999)
+  quantity!: number | null;
+  @ApiProperty() @IsString() @MaxLength(2000) remark!: string;
+  @ApiProperty() @IsInt() @Min(0) sortOrder!: number;
+}
 export class CreateWorkOrderDto {
   @ApiProperty()
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
@@ -57,7 +68,6 @@ export class CreateWorkOrderDto {
   @Max(999999999999)
   quantity!: number | null;
   @ApiProperty() @IsString() @MaxLength(30) unit!: string;
-  @ApiProperty() @IsUUID() machineId!: string;
   @ApiProperty() @IsDateString({ strict: true }) @Matches(/^20\d{2}-\d{2}-\d{2}$/) dueDate!: string;
   @ApiProperty() @Matches(/^$|^([01]\d|2[0-3]):[0-5]\d$/) dueTime!: string;
   @ApiProperty({ enum: Priority }) @IsEnum(Priority) priority!: Priority;
@@ -71,6 +81,11 @@ export class CreateWorkOrderDto {
   @ValidateNested({ each: true })
   @Type(() => MaterialDto)
   materials!: MaterialDto[];
+  @ApiProperty({ type: [MachineAssignmentDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => MachineAssignmentDto)
+  machines!: MachineAssignmentDto[];
 }
 export class UpdateWorkOrderDto extends PartialType(CreateWorkOrderDto, {
   skipNullProperties: false,

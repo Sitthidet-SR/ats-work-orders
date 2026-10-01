@@ -22,6 +22,7 @@ export const orderInclude = {
   issuer: { select: personSelect },
   department: true,
   machine: true,
+  machines: { include: { machine: true }, orderBy: { sortOrder: 'asc' } },
   materials: { orderBy: { sortOrder: 'asc' } },
   attachments: {
     select: {
@@ -74,8 +75,12 @@ export class WorkOrdersService {
       dto.supervisorId === actor.id
     )
       throw new BadRequestException('ผู้สั่งงานกับหัวหน้าต้องเป็นคนละคน และหัวหน้ากับผู้อนุมัติต้องเป็นคนละคน');
-    const machine = await this.db.machine.findUnique({ where: { id: dto.machineId } });
-    if (!machine?.active) throw new BadRequestException('เครื่องจักรไม่พร้อมใช้งาน');
+    if (!dto.machines?.length) throw new BadRequestException('กรุณาเลือกเครื่องจักรอย่างน้อย 1 เครื่อง');
+    if (dto.machines.length > 5) throw new BadRequestException('เลือกเครื่องจักรได้สูงสุด 5 เครื่อง');
+    for (const ma of dto.machines) {
+      const machine = await this.db.machine.findUnique({ where: { id: ma.machineId } });
+      if (!machine?.active) throw new BadRequestException('เครื่องจักรไม่พร้อมใช้งาน');
+    }
     for (const [id, role] of [
       [dto.supervisorId, 'SUPERVISOR'],
       [dto.approverId, 'APPROVER'],
@@ -99,7 +104,6 @@ export class WorkOrdersService {
       productName: dto.productName,
       quantity: dto.quantity,
       unit: dto.unit,
-      machineId: dto.machineId,
       dueDate: dateOnly(dto.dueDate),
       dueTime: dto.dueTime,
       priority: dto.priority,
@@ -118,6 +122,14 @@ export class WorkOrdersService {
           documentNo,
           issuerId: actor.id,
           materials: { create: dto.materials.map((m, i) => ({ ...m, sortOrder: i })) },
+          machines: {
+            create: dto.machines.map((ma, i) => ({
+              machineId: ma.machineId,
+              quantity: ma.quantity,
+              remark: ma.remark,
+              sortOrder: i,
+            })),
+          },
           approvals: {
             create: [
               { userId: actor.id, stage: 'ISSUER' },
@@ -153,6 +165,7 @@ export class WorkOrdersService {
     T extends {
       quantity: Prisma.Decimal | null;
       materials: { quantity: Prisma.Decimal | null }[];
+      machines: { machine: { id: string; code: string; name: string }; quantity: Prisma.Decimal | null; remark: string; sortOrder: number; machineId: string }[];
       approvals: { stage: ApprovalStage; userId: string }[];
     },
   >(order: T) {
@@ -162,6 +175,11 @@ export class WorkOrdersService {
       materials: order.materials.map((m) => ({
         ...m,
         quantity: m.quantity === null ? null : Number(m.quantity),
+      })),
+      machineDetails: order.machines.map((ma) => ({
+        machine: ma.machine,
+        quantity: ma.quantity === null ? null : Number(ma.quantity),
+        remark: ma.remark,
       })),
       supervisorId: order.approvals.find((a) => a.stage === 'SUPERVISOR')?.userId ?? '',
       approverId: order.approvals.find((a) => a.stage === 'APPROVER')?.userId ?? '',
@@ -195,6 +213,16 @@ export class WorkOrdersService {
           quantity: m.quantity,
           unit: m.unit,
           remark: m.remark,
+          sortOrder: i,
+        })),
+      });
+      await tx.workOrderMachine.deleteMany({ where: { workOrderId: id } });
+      await tx.workOrderMachine.createMany({
+        data: merged.machines.map((ma, i) => ({
+          workOrderId: id,
+          machineId: ma.machineId,
+          quantity: ma.quantity,
+          remark: ma.remark,
           sortOrder: i,
         })),
       });
@@ -331,7 +359,7 @@ export class WorkOrdersService {
     const where: Prisma.WorkOrderWhereInput = {
       status: query.status,
       priority: query.priority,
-      machineId: query.machineId,
+      machines: query.machineId ? { some: { machineId: query.machineId } } : undefined,
       departmentId: query.departmentId,
       issuerId: query.issuerId,
     };

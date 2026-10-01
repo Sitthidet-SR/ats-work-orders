@@ -56,7 +56,17 @@ const schema = z
       .max(999999999999)
       .nullable(),
     unit: z.string().max(30),
-    machineId: z.uuid('กรุณาเลือกเครื่องจักร'),
+    machines: z
+      .array(
+        z.object({
+          machineId: z.string().min(1, 'กรุณาเลือกเครื่องจักร'),
+          quantity: z.number({ error: 'กรุณาระบุจำนวน' }).min(0, 'จำนวนห้ามติดลบ').nullable(),
+          remark: z.string().max(2000),
+          sortOrder: z.number().int().min(0),
+        }),
+      )
+      .min(1, 'กรุณาเลือกเครื่องจักรอย่างน้อย 1 เครื่อง')
+      .max(5, 'เลือกเครื่องจักรได้สูงสุด 5 เครื่อง'),
     dueDate: required.regex(/^20\d{2}-\d{2}-\d{2}$/, 'กรุณาระบุวันที่แบบ วัน/เดือน/ปี (พ.ศ.)'),
     dueTime: z.string().regex(/^$|^([01]\d|2[0-3]):[0-5]\d$/, 'เวลาไม่ถูกต้อง'),
     priority: z.enum(priorities),
@@ -129,7 +139,12 @@ function fromOrder(order: WorkOrder): WorkOrderInput {
     productName: order.productName,
     quantity: order.quantityText?.trim() ? null : order.quantity,
     unit: order.unit,
-    machineId: order.machineId,
+    machines: order.machineDetails.map(({ machine, quantity, remark }, i) => ({
+      machineId: machine.id,
+      quantity,
+      remark,
+      sortOrder: i,
+    })),
     dueDate: order.dueDate.slice(0, 10),
     dueTime: order.dueTime,
     priority: order.priority,
@@ -233,7 +248,7 @@ function OrderForm({
           productName: '',
           quantity: 1,
           unit: '',
-          machineId: '',
+          machines: [{ machineId: '', quantity: null, remark: '', sortOrder: 0 }],
           dueDate: today(),
           dueTime: '',
           priority: 'NORMAL',
@@ -246,6 +261,7 @@ function OrderForm({
         },
   });
   const materials = useFieldArray({ control: form.control, name: 'materials' });
+  const machines = useFieldArray({ control: form.control, name: 'machines' });
   const data = form.watch();
   const issuerId = editing ? initial!.issuerId : user!.id;
   const selfApproval = data.approverId === issuerId && !data.supervisorId;
@@ -623,18 +639,7 @@ function OrderForm({
                     <input aria-label="หน่วยนับ" {...register('unit')} />
                   </Field>
                 </div>
-                <Field label="ไลน์ผลิต / เครื่องจักร" required error={errors.machineId?.message}>
-                  <select aria-label="เครื่องจักร" {...register('machineId')}>
-                    <option value="">เลือกเครื่องจักร</option>
-                    {masters.machines
-                      .filter((m) => m.active)
-                      .map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.name}
-                        </option>
-                      ))}
-                  </select>
-                </Field>
+
                 <Field label="กำหนดส่งงาน" required error={errors.dueDate?.message}>
                   <Controller
                     name="dueDate"
@@ -654,6 +659,100 @@ function OrderForm({
                 <Field label="เวลา (เว้นว่างได้)" error={errors.dueTime?.message}>
                   <input type="time" aria-label="เวลา" {...register('dueTime')} />
                 </Field>
+              </div>
+            </Card>
+            <Card
+              title="แผนการผลิต (ไลน์ผลิต / เครื่องจักร)"
+              subtitle="02 / PRODUCTION PLANNING"
+              action={
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    if (machines.fields.length >= 5) {
+                      toast.error('เพิ่มเครื่องจักรได้สูงสุด 5 เครื่อง');
+                      return;
+                    }
+                    machines.append({
+                      machineId: '',
+                      quantity: null,
+                      remark: '',
+                      sortOrder: machines.fields.length,
+                    });
+                  }}
+                >
+                  <Plus size={14} />
+                  เพิ่มเครื่องจักร
+                </Button>
+              }
+            >
+              {errors.machines?.root && (
+                <p className="mb-4 rounded bg-red-50 p-3 text-sm text-red-600">
+                  {errors.machines.root.message}
+                </p>
+              )}
+              <div className="space-y-4">
+                {machines.fields.map((field, i) => (
+                  <div key={field.id} className="flex flex-wrap items-start gap-4 sm:flex-nowrap">
+                    <div className="flex items-center gap-3 pt-9 text-slate-400">
+                      <span className="w-4 text-center text-sm font-semibold">{i + 1}.</span>
+                    </div>
+                    <div className="min-w-[200px] flex-1">
+                      <Field
+                        label="เลือกเครื่องจักร"
+                        required
+                        error={errors.machines?.[i]?.machineId?.message}
+                      >
+                        <select
+                          aria-label={`เครื่องจักร ${i + 1}`}
+                          {...register(`machines.${i}.machineId`)}
+                        >
+                          <option value="">-- เลือกเครื่องจักร --</option>
+                          {masters.machines
+                            .filter((m) => m.active)
+                            .map((m) => (
+                              <option key={m.id} value={m.id}>
+                                {m.name}
+                              </option>
+                            ))}
+                        </select>
+                      </Field>
+                    </div>
+                    <div className="w-full sm:w-[120px]">
+                      <Field label="จำนวน" error={errors.machines?.[i]?.quantity?.message}>
+                        <input
+                          type="number"
+                          step="any"
+                          min="0"
+                          placeholder="จำนวน"
+                          {...register(`machines.${i}.quantity`, { valueAsNumber: true })}
+                        />
+                      </Field>
+                    </div>
+                    <div className="w-full sm:w-[200px]">
+                      <Field label="หมายเหตุ" error={errors.machines?.[i]?.remark?.message}>
+                        <input
+                          type="text"
+                          placeholder="หมายเหตุเพิ่มเติม"
+                          {...register(`machines.${i}.remark`)}
+                        />
+                      </Field>
+                    </div>
+                    <div className="pt-8">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="text-red-500 hover:bg-red-50 hover:text-red-600"
+                        onClick={() => machines.remove(i)}
+                        disabled={machines.fields.length <= 1}
+                      >
+                        <Trash2 size={16} />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </Card>
             <Card
@@ -779,7 +878,7 @@ function OrderForm({
           <aside className="space-y-5 xl:sticky xl:top-[100px]">
             <Summary
               priority={data.priority}
-              machine={masters.machines.find((m) => m.id === data.machineId)?.name ?? ''}
+              machine={data.machines?.map((ma) => masters.machines.find((m) => m.id === ma.machineId)?.name).filter(Boolean).join(', ') ?? ''}
               dueDate={data.dueDate}
               quantity={data.quantity}
               quantityText={data.quantityText}

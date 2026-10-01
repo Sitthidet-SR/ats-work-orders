@@ -57,7 +57,7 @@ export class PdfService implements OnModuleDestroy {
     if (!this.assets) {
       const assets = Promise.all([
         readFile(resolve(__dirname, '../../../assets/Sarabun-Regular.ttf')),
-        readFile(resolve(__dirname, '../../../assets/work-order-template.jpg')),
+        readFile(resolve(__dirname, '../../../assets/logo.png')),
       ]);
       this.assets = assets;
       void assets.catch(() => {
@@ -83,7 +83,7 @@ export class PdfService implements OnModuleDestroy {
       await page.evaluate(async () => {
         await document.fonts.ready;
         for (const span of document.querySelectorAll<HTMLElement>('.fit')) {
-          let size = 23;
+          let size = Number.parseFloat(getComputedStyle(span).fontSize);
           while (span.scrollWidth > span.clientWidth && size > 10)
             span.style.fontSize = `${--size}px`;
         }
@@ -99,19 +99,28 @@ export class PdfService implements OnModuleDestroy {
     }
   }
   async preview(dto: CreateWorkOrderDto, actor: Actor) {
-    const [issuer, department, machine] = await Promise.all([
+    const [issuer, department] = await Promise.all([
       this.db.user.findUniqueOrThrow({ where: { id: actor.id }, select: { name: true } }),
       this.db.department.findUniqueOrThrow({ where: { id: dto.departmentId } }),
-      this.db.machine.findUniqueOrThrow({ where: { id: dto.machineId } }),
     ]);
+    const machineDetails = await Promise.all(
+      dto.machines.map(async (ma) => {
+        const machine = await this.db.machine.findUniqueOrThrow({ where: { id: ma.machineId } });
+        return {
+          machine,
+          quantity: ma.quantity,
+          remark: ma.remark,
+        };
+      })
+    );
     return this.render({
       ...dto,
       documentNo: 'รอออกเลขที่เอกสาร',
       issuer,
       department,
-      machine,
+      machineDetails,
       approvals: [],
-    });
+    } as any);
   }
   async generate(id: string, actor: Actor, permission = 'work_order.export') {
     if (!actor.permissions.includes(permission))

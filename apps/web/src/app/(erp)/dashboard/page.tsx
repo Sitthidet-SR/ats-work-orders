@@ -125,7 +125,7 @@ export default function DashboardPage() {
                         <span className="ml-2 font-normal text-slate-500">{order.productCode}</span>
                       </p>
                       <p className="mt-1 text-[11px] text-slate-400">
-                        {order.machine.name} · {order.dueTime} น.
+                        {order.machineDetails?.map(m => m.machine.name).join(', ')} · {order.dueTime} น.
                       </p>
                     </div>
                   </div>

@@ -315,7 +315,7 @@ export function OrderDetail({ id }: { id: string }) {
                   'จำนวนที่สั่งผลิต',
                   `${order.quantityText || order.quantity?.toLocaleString('th-TH', { maximumFractionDigits: 4 }) || '—'} ${order.unit}`,
                 ],
-                ['ไลน์ผลิต / เครื่องจักร', order.machine.name],
+                ['ไลน์ผลิต / เครื่องจักร', order.machineDetails.map(m => m.machine.name).join(', ')],
                 ['กำหนดส่งงาน', thaiDate(order.dueDate)],
                 ['เวลา', `${order.dueTime} น.`],
               ].map(([label, value]) => (
@@ -415,7 +415,7 @@ export function OrderDetail({ id }: { id: string }) {
         <aside className="space-y-5 xl:sticky xl:top-[100px]">
           <Summary
             priority={order.priority}
-            machine={order.machine.name}
+            machine={order.machineDetails.map(m => m.machine.name).join(', ')}
             dueDate={order.dueDate}
             quantity={order.quantity}
             quantityText={order.quantityText}

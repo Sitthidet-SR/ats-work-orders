@@ -106,7 +106,7 @@ export function OrderTable({
                   </b>{' '}
                   <span className="text-[10px] text-slate-400">{order.unit}</span>
                 </td>
-                <td className="whitespace-nowrap text-slate-500">{order.machine.name}</td>
+                <td className="whitespace-nowrap text-slate-500">{order.machineDetails?.map(m => m.machine.name).join(', ') ?? ''}</td>
                 <td className="whitespace-nowrap text-slate-600">
                   {thaiDate(order.dueDate)}
                   <p className="mt-1 text-[10px] text-slate-400">{order.dueTime} น.</p>
