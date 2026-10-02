@@ -16,4 +16,4 @@ ENV NODE_ENV=production
 ENV CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
 USER node
 EXPOSE 4000
-CMD ["sh", "-c", "pnpm --filter api db:migrate && pnpm --filter api start:prod"]
+CMD ["sh", "-c", "attempt=1; until pnpm --filter api db:migrate; do if [ \"$attempt\" -ge 5 ]; then echo 'Migration failed after 5 attempts'; exit 1; fi; echo \"Migration attempt $attempt failed; retrying in 15 seconds\"; attempt=$((attempt + 1)); sleep 15; done; exec pnpm --filter api start:prod"]
