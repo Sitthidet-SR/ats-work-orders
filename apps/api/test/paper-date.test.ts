@@ -9,8 +9,8 @@ test('PDF order and due dates use zero-padded day/month/Buddhist year', () => {
     dueDate: new Date('2026-11-09T00:00:00.000Z'),
     issuer: { name: 'Issuer' },
     department: { name: 'Department' },
-    machineDetails: [{ machine: { name: 'Machine' }, quantity: null, remark: '' }],
-    description: 'Description',
+    machineDetails: [{ machine: { name: 'Machine' }, quantity: 0, remark: 'Prepare the material' }],
+    description: 'Description that is long enough to have previously been moved to an appendix page.',
     followAttachment: false,
     productCode: 'PART-1',
     productName: '',
@@ -27,4 +27,7 @@ test('PDF order and due dates use zero-padded day/month/Buddhist year', () => {
   assert.match(html, />01\/10\/2569<\/span>/);
   assert.match(html, />09\/11\/2569<\/span>/);
   assert.doesNotMatch(html, />01\/10\/2026<\/span>/);
+  assert.match(html, /Description that is long enough/);
+  assert.match(html, /Prepare the material/);
+  assert.doesNotMatch(html, /เอกสารแนบท้าย/);
 });

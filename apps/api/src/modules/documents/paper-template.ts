@@ -1,4 +1,4 @@
-export const PAPER_TEMPLATE_VERSION = 'a4-work-order-v5';
+export const PAPER_TEMPLATE_VERSION = 'a4-work-order-v6';
 
 export interface PaperOrder {
   documentNo: string;
@@ -38,12 +38,6 @@ const paperDate = (value: Date | string) => {
 
 /** Draw the work order directly at A4 size; the logo is the only raster element. */
 export function paperHtml(order: PaperOrder, logo: Buffer, font: Buffer) {
-  const extra: string[] = [];
-  const limited = (label: string, value: string, length: number) => {
-    if (Array.from(value).length <= length) return value;
-    extra.push(`<h2>${escapeHtml(label)}</h2><p>${escapeHtml(value)}</p>`);
-    return 'ดูรายละเอียดในหน้าต่อไป';
-  };
   const at = (x: number, y: number, w: number, h: number, contents: string, className = '') =>
     `<div class="placed ${className}" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px">${contents}</div>`;
   const value = (x: number, y: number, w: number, text: unknown) =>
@@ -55,19 +49,11 @@ export function paperHtml(order: PaperOrder, logo: Buffer, font: Buffer) {
   const mark = (checked: boolean) =>
     `<span class="mark">(${checked ? '<span class="tick">✓</span>' : '<span class="tick"></span>'})</span>`;
 
-  const description = limited(
-    'รายละเอียดงานผลิต',
-    order.description || (order.followAttachment ? 'ตามเอกสารแนบท้าย' : ''),
-    60,
-  );
-  const product = limited('รหัสชิ้นงาน/ชื่อสินค้า', [order.productCode, order.productName].filter(Boolean).join(' / '), 48);
-  const instructions = limited('ขั้นตอน/คำสั่งพิเศษ', order.specialInstructions, 120);
+  const description = order.description || (order.followAttachment ? 'ตามเอกสารแนบ' : '');
+  const product = [order.productCode, order.productName].filter(Boolean).join(' / ');
+  const instructions = order.specialInstructions;
   const other = order.reasonType === 'URGENT' || order.reasonType === 'OTHER';
-  const reason = limited(
-    'เหตุผลในการออกเอกสารชั่วคราว',
-    order.reasonDetail || (order.reasonType === 'URGENT' ? 'งานด่วน' : ''),
-    65,
-  );
+  const reason = order.reasonDetail || (order.reasonType === 'URGENT' ? 'งานด่วน' : '');
   const machines = order.machineDetails.slice(0, 5);
   const belowStepsOffset = (5 - machines.length) * 28;
   const belowStepsY = (y: number) => y - belowStepsOffset;
@@ -81,13 +67,6 @@ export function paperHtml(order: PaperOrder, logo: Buffer, font: Buffer) {
       dotted(485, y, 243, machine?.machine.name || ''),
     ].join('');
   }).join('');
-  if (order.machineDetails.length > 5 || order.machineDetails.some((m) =>
-    m.quantity !== null || Array.from(m.machine.name).length > 28 || Array.from(m.remark).length > 32
-  )) {
-    extra.push(
-      `<h2>แผนการผลิต (เครื่องจักร)</h2><table><thead><tr><th>#</th><th>เครื่องจักร</th><th>จำนวน</th><th>ขั้นตอนการผลิต</th></tr></thead><tbody>${order.machineDetails.map((m, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(m.machine.name)}</td><td>${escapeHtml(m.quantity ?? '')}</td><td>${escapeHtml(m.remark)}</td></tr>`).join('')}</tbody></table>`,
-    );
-  }
   const materials = Array.from({ length: 2 }, (_, i) => {
     const item = order.materials[i];
     const y = belowStepsY(721 + i * 28);
@@ -99,14 +78,6 @@ export function paperHtml(order: PaperOrder, logo: Buffer, font: Buffer) {
       dotted(513, y, 176, item?.materialGrade || ''),
     ].join('');
   }).join('');
-  if (
-    order.materials.length > 2 ||
-    order.materials.some((m) => Array.from(m.materialName || m.materialCode).length > 42 || Array.from(m.materialGrade || '').length > 20)
-  ) {
-    extra.push(
-      `<h2>รายการวัตถุดิบ / ส่วนประกอบ</h2><table><thead><tr><th>#</th><th>วัสดุ</th><th>เกรด</th></tr></thead><tbody>${order.materials.map((m, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(m.materialName || m.materialCode)}</td><td>${escapeHtml(m.materialGrade)}</td></tr>`).join('')}</tbody></table>`,
-    );
-  }
   const signatures = ([
     ['ISSUER', 'ผู้สั่งงาน'],
     ['SUPERVISOR', 'ผู้รับสั่งงาน/หัวหน้างาน'],
@@ -131,13 +102,12 @@ export function paperHtml(order: PaperOrder, logo: Buffer, font: Buffer) {
     .fit{display:inline-block;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .underlined{text-decoration:underline;text-underline-offset:3px}
     .dotted{border-bottom:1px dotted #555;display:flex;align-items:center;overflow:hidden}
-    .section{font-weight:bold}.instructions{white-space:pre-wrap;overflow-wrap:anywhere;line-height:22px;overflow:hidden}
+    .section{font-weight:bold}.description,.instructions{white-space:pre-wrap;overflow-wrap:anywhere;line-height:22px;overflow:hidden}
+    .description{font-weight:bold;text-decoration:underline;text-underline-offset:3px}
     .reason{display:flex;align-items:center;gap:14px}.reason-option{white-space:nowrap}
     .mark{display:inline-flex;align-items:center;justify-content:space-around;width:28px;height:23px}
     .tick{display:inline-block;width:12px;height:20px;line-height:20px;font-weight:bold}
     .signature{display:flex;align-items:center}.signature-line{display:inline-block;width:200px;height:19px;border-bottom:1px dotted #444;text-align:center;margin:0 1px}
-    .appendix{padding:48px;font-size:15px;line-height:1.6;break-before:page}h1{font-size:20px}h2{font-size:16px}
-    p{white-space:pre-wrap;overflow-wrap:anywhere}table{width:100%;border-collapse:collapse}th,td{border:1px solid #555;padding:7px;text-align:left;overflow-wrap:anywhere}tr{break-inside:avoid}thead{display:table-header-group}
   </style></head><body><div class="page"><div class="border"></div>
     <img class="logo" src="data:image/png;base64,${logo.toString('base64')}" alt="ATS">
     <div class="title">ใบสั่งงานผลิตชั่วคราว (TEMPORARY WORK ORDER)</div>
@@ -150,7 +120,7 @@ export function paperHtml(order: PaperOrder, logo: Buffer, font: Buffer) {
     ${label(295, 255, 92, 'แผนก (Dept):')}
     ${value(384, 255, 333, order.department.name)}
     ${label(65, 310, 154, '[รายละเอียดงานผลิต]')}
-    ${value(218, 310, 500, description)}
+    ${at(218, 306, 500, 51, escapeHtml(description), 'description')}
     ${label(65, 367, 230, 'รหัสชิ้นงาน/ชื่อสินค้า (Product ID/Name):')}
     ${value(322, 367, 391, product)}
     ${label(65, 424, 178, 'จำนวนที่สั่งผลิต (Quantity):')}
@@ -172,5 +142,5 @@ export function paperHtml(order: PaperOrder, logo: Buffer, font: Buffer) {
       `<span class="reason-option">${mark(order.reasonType === 'REWORK')} งานแก้ไข (Rework)</span><span class="reason-option">${mark(order.reasonType === 'SAMPLE')} ผลิตสินค้าตัวอย่าง (Sample)</span><span class="reason-option">${mark(order.reasonType === 'ERP_FAILURE')} ระบบ ERP ขัดข้อง</span>`, 'reason')}
     ${at(65, belowStepsY(898), 660, 28, `${mark(other)} อื่นๆ (ระบุ): <span class="underlined">${escapeHtml(other ? reason : '')}</span>`, 'other')}
     ${signatures}
-  </div>${extra.length ? `<section class="appendix"><h1>เอกสารแนบท้าย ${escapeHtml(order.documentNo)}</h1>${extra.join('')}</section>` : ''}</body></html>`;
+  </div></body></html>`;
 }
