@@ -31,3 +31,45 @@ test('PDF order and due dates use zero-padded day/month/Buddhist year', () => {
   assert.match(html, /Prepare the material/);
   assert.doesNotMatch(html, /เอกสารแนบท้าย/);
 });
+
+const materialOrder = (machines: number, materials: number): PaperOrder => ({
+  documentNo: 'PN2610002',
+  orderDate: '2026-10-01',
+  dueDate: '2026-11-09',
+  issuer: { name: 'Issuer' },
+  department: { name: 'Department' },
+  machineDetails: Array.from({ length: machines }, (_, i) => ({
+    machine: { name: `Machine ${i + 1}` },
+    quantity: null,
+    remark: '',
+  })),
+  description: '',
+  followAttachment: false,
+  productCode: 'PART-1',
+  productName: '',
+  quantity: 1,
+  unit: '',
+  dueTime: '',
+  materials: Array.from({ length: materials }, (_, i) => ({
+    materialCode: '',
+    materialName: `Material-${i + 1}`,
+    materialGrade: 'SS400',
+  })),
+  specialInstructions: '',
+  reasonType: 'URGENT',
+  reasonDetail: '',
+  approvals: [],
+});
+
+test('PDF prints every material on the first page when step rows are free', () => {
+  const html = paperHtml(materialOrder(1, 6), Buffer.alloc(0), Buffer.alloc(0));
+  for (let i = 1; i <= 6; i++) assert.match(html, new RegExp(`>Material-${i}<`));
+  assert.equal(html.match(/class="page"/g)?.length, 1);
+});
+
+test('PDF continues materials that do not fit onto another page', () => {
+  const html = paperHtml(materialOrder(5, 40), Buffer.alloc(0), Buffer.alloc(0));
+  for (let i = 1; i <= 40; i++) assert.match(html, new RegExp(`>Material-${i}<`));
+  assert.match(html, /มีต่อหน้าถัดไป/);
+  assert.equal(html.match(/class="page"/g)?.length, 3);
+});

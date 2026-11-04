@@ -1,4 +1,4 @@
-export const PAPER_TEMPLATE_VERSION = 'a4-work-order-v6';
+export const PAPER_TEMPLATE_VERSION = 'a4-work-order-v7';
 
 export interface PaperOrder {
   documentNo: string;
@@ -67,9 +67,19 @@ export function paperHtml(order: PaperOrder, logo: Buffer, font: Buffer) {
       dotted(485, y, 243, machine?.machine.name || ''),
     ].join('');
   }).join('');
-  const materials = Array.from({ length: 2 }, (_, i) => {
+  // Materials use the two reserved rows plus any space left by unused step rows,
+  // tightening the row pitch before spilling the rest onto a continuation page.
+  const materialRows = Math.max(2, order.materials.length);
+  const materialSpace = 56 + belowStepsOffset;
+  const materialPitch = Math.floor(materialSpace / 22) >= materialRows
+    ? Math.min(28, Math.floor(materialSpace / materialRows))
+    : 28;
+  const firstPageMaterials = Math.min(materialRows, Math.floor(materialSpace / materialPitch));
+  const overflowMaterials = order.materials.slice(firstPageMaterials);
+  const belowMaterialsOffset = belowStepsOffset - Math.max(0, firstPageMaterials * materialPitch - 56);
+  const belowMaterialsY = (y: number) => y - belowMaterialsOffset;
+  const materialRow = (i: number, y: number) => {
     const item = order.materials[i];
-    const y = belowStepsY(721 + i * 28);
     return [
       label(66, y, 18, `${i + 1}.`),
       label(84, y, 37, 'วัสดุ:'),
@@ -77,14 +87,32 @@ export function paperHtml(order: PaperOrder, logo: Buffer, font: Buffer) {
       label(470, y, 42, 'เกรด:'),
       dotted(513, y, 176, item?.materialGrade || ''),
     ].join('');
-  }).join('');
+  };
+  const materials = Array.from({ length: firstPageMaterials }, (_, i) =>
+    materialRow(i, belowStepsY(721 + i * materialPitch)),
+  ).join('');
+  const perContinuationPage = 27;
+  const continuation = Array.from(
+    { length: Math.ceil(overflowMaterials.length / perContinuationPage) },
+    (_, page) => {
+      const start = firstPageMaterials + page * perContinuationPage;
+      const count = Math.min(perContinuationPage, order.materials.length - start);
+      return `<div class="page"><div class="border"></div>
+    <div class="title">ใบสั่งงานผลิตชั่วคราว (TEMPORARY WORK ORDER) - หน้า ${page + 2}</div>
+    ${label(65, 196, 170, 'เลขที่เอกสาร (Doc No.):')}
+    ${value(230, 196, 200, order.documentNo)}
+    ${label(65, 240, 400, '[รายการวัตถุดิบ / ส่วนประกอบ] (ต่อ)', 'section')}
+    ${Array.from({ length: count }, (_, i) => materialRow(start + i, 272 + i * 28)).join('')}
+  </div>`;
+    },
+  ).join('');
   const signatures = ([
     ['ISSUER', 'ผู้สั่งงาน'],
     ['SUPERVISOR', 'ผู้รับสั่งงาน/หัวหน้างาน'],
     ['APPROVER', 'ผู้อนุมัติ'],
   ] as const).map(([stage, title], i) => {
     const approval = order.approvals.find((a) => a.stage === stage && a.status === 'APPROVED');
-    return at(66, belowStepsY(944 + i * 42), 450, 27,
+    return at(66, belowMaterialsY(944 + i * 42), 450, 27,
       `<span>ลงชื่อ: </span><span class="signature-line">${escapeHtml(approval?.decidedBy?.name || '')}</span><span>(${title})</span>`,
       'signature');
   }).join('');
@@ -133,14 +161,14 @@ export function paperHtml(order: PaperOrder, logo: Buffer, font: Buffer) {
     ${value(230, belowStepsY(648), 112, paperDate(order.dueDate))}
     ${label(348, belowStepsY(648), 100, 'เวลา (Time):')}
     ${dotted(447, belowStepsY(648), 196, order.dueTime)}
-    ${label(65, belowStepsY(691), 277, '[รายการวัตถุดิบ / ส่วนประกอบ]', 'section')}
+    ${label(65, belowStepsY(691), 450, `[รายการวัตถุดิบ / ส่วนประกอบ]${overflowMaterials.length ? ' (มีต่อหน้าถัดไป)' : ''}`, 'section')}
     ${materials}
-    ${label(65, belowStepsY(773), 450, '[ขั้นตอน/คำสั่งพิเศษ (Special Instructions)]')}
-    ${at(65, belowStepsY(799), 665, 50, escapeHtml(instructions), 'instructions')}
-    ${label(65, belowStepsY(844), 450, '[เหตุผลในการออกเอกสารชั่วคราว]')}
-    ${at(65, belowStepsY(872), 660, 26,
+    ${label(65, belowMaterialsY(773), 450, '[ขั้นตอน/คำสั่งพิเศษ (Special Instructions)]')}
+    ${at(65, belowMaterialsY(799), 665, 50, escapeHtml(instructions), 'instructions')}
+    ${label(65, belowMaterialsY(844), 450, '[เหตุผลในการออกเอกสารชั่วคราว]')}
+    ${at(65, belowMaterialsY(872), 660, 26,
       `<span class="reason-option">${mark(order.reasonType === 'REWORK')} งานแก้ไข (Rework)</span><span class="reason-option">${mark(order.reasonType === 'SAMPLE')} ผลิตสินค้าตัวอย่าง (Sample)</span><span class="reason-option">${mark(order.reasonType === 'ERP_FAILURE')} ระบบ ERP ขัดข้อง</span>`, 'reason')}
-    ${at(65, belowStepsY(898), 660, 28, `${mark(other)} อื่นๆ (ระบุ): <span class="underlined">${escapeHtml(other ? reason : '')}</span>`, 'other')}
+    ${at(65, belowMaterialsY(898), 660, 28, `${mark(other)} อื่นๆ (ระบุ): <span class="underlined">${escapeHtml(other ? reason : '')}</span>`, 'other')}
     ${signatures}
-  </div></body></html>`;
+  </div>${continuation}</body></html>`;
 }
